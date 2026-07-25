@@ -7,7 +7,78 @@
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
-  <div id="app"></div>
+  <div class="page">
+    <header class="nav">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">m</span>
+        <div class="brand-text">
+          <span class="brand-word">mixtape</span>
+          <span class="brand-sub">MP3 PLAYER</span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <button id="add-track-btn" class="icon-btn" type="button" aria-label="Add a track">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>ADD A TRACK</span>
+        </button>
+        <input id="file-input" type="file" accept="audio/mpeg,.mp3" hidden />
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">
+        <span class="eyebrow-rule" aria-hidden="true"></span>
+        <span>3D MP3 PLAYER</span>
+      </div>
+      <h1 class="headline">Your music.<br />Made real.</h1>
+      <div class="status-pill">
+        <span class="status-dot" aria-hidden="true"></span>
+        OPEN LIBRARY &middot; ANYONE ADDS
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="mode-card">
+        <span class="mode-label">MODE</span>
+        <div class="mode-toggles">
+          <button id="shuffle-toggle" class="toggle-btn" type="button">SHUF</button>
+          <button id="repeat-toggle" class="toggle-btn" type="button">REPEAT</button>
+        </div>
+      </div>
+
+      <div class="device-stage">
+        <canvas id="device-canvas"></canvas>
+      </div>
+
+      <button id="reset-view" class="reset-btn" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 4v5h5"></path>
+        </svg>
+        <span>RESET VIEW</span>
+      </button>
+    </section>
+
+    <p class="drag-hint"><span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE <span aria-hidden="true">&rarr;</span></p>
+
+    <section class="player-bar-wrap">
+      <div class="player-bar" id="player-bar"></div>
+    </section>
+
+    <section class="library">
+      <div class="library-header">
+        <span class="section-label">CHOOSE A TRACK</span>
+      </div>
+      <div class="track-row-wrap">
+        <button class="scroll-btn scroll-left" id="scroll-left" type="button" aria-label="Scroll left">&lsaquo;</button>
+        <div class="track-row" id="track-row"></div>
+        <button class="scroll-btn scroll-right" id="scroll-right" type="button" aria-label="Scroll right">&rsaquo;</button>
+      </div>
+    </section>
+  </div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
