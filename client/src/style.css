@@ -56,17 +56,11 @@ button {
 }
 
 .brand-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--ink);
-  color: var(--bg);
-  font-family: var(--font-serif);
-  font-size: 1.2rem;
-  font-weight: 700;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
 }
 
 .brand-text {

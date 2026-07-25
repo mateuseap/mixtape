@@ -34,7 +34,7 @@ Streaming services do not keep your files, and existing self-hosted media server
 
 |  |  |
 |--|--|
-| 🎛 **Clickable 3D device** | A draggable, auto-rotating WebGL click wheel: click center to play/pause, or the ring's top/bottom/left/right for volume and skip |
+| 🎛 **Clickable 3D device** | A draggable, auto-rotating WebGL click wheel with printed icons at every zone: play/pause in the center, volume and skip at top/bottom/left/right, exactly like a real click wheel |
 | 📤 **Drop-in uploads** | Pick an MP3 and it appears in the library immediately, no form fields required |
 | 🏷 **Automatic tagging** | ID3 title/artist/album/duration parsed on upload, falls back to the filename |
 | ⏩ **Real seeking** | HTTP Range-request streaming, so scrubbing does not need the whole file downloaded |
