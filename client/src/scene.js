@@ -30,7 +30,7 @@ function buildGroundShadow() {
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -1.02;
+  mesh.position.y = -1.16;
   return mesh;
 }
 
@@ -84,17 +84,38 @@ function truncate(ctx, text, maxWidth) {
   return `${result}...`;
 }
 
+// Body is a portrait-oriented "candy bar" device: a screen sits in the top
+// third with margin on every side, a click wheel sits in the bottom half
+// with margin on every side, and there is deliberate clear space between
+// the two so they never overlap. Each layer (body -> bezel -> screen, and
+// body -> wheel ring -> center/notches) sits at a strictly increasing z so
+// nothing is coplanar with anything else it doesn't fully contain (avoids
+// z-fighting flicker).
+const BODY_WIDTH = 1.4;
+const BODY_HEIGHT = 2.15;
+const BODY_DEPTH = 0.34;
+const BODY_FRONT_Z = BODY_DEPTH / 2;
+
+const SCREEN_WIDTH = 1.06;
+const SCREEN_HEIGHT = 0.62;
+const SCREEN_MARGIN_TOP = 0.14;
+const SCREEN_CENTER_Y = BODY_HEIGHT / 2 - SCREEN_MARGIN_TOP - SCREEN_HEIGHT / 2;
+
+const WHEEL_RADIUS = 0.5;
+const WHEEL_MARGIN_BOTTOM = 0.14;
+const WHEEL_CENTER_Y = -(BODY_HEIGHT / 2 - WHEEL_MARGIN_BOTTOM - WHEEL_RADIUS);
+
 function buildDevice(screenTexture) {
   const group = new THREE.Group();
 
   const bodyMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xd7dadb,
-    metalness: 0.9,
-    roughness: 0.32,
-    clearcoat: 0.4,
-    clearcoatRoughness: 0.4,
+    color: 0xdadedf,
+    metalness: 0.85,
+    roughness: 0.28,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.25,
   });
-  const bodyGeometry = new RoundedBoxGeometry(1.6, 1, 0.18, 6, 0.09);
+  const bodyGeometry = new RoundedBoxGeometry(BODY_WIDTH, BODY_HEIGHT, BODY_DEPTH, 6, 0.1);
   const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
   body.castShadow = true;
   body.receiveShadow = true;
@@ -107,55 +128,58 @@ function buildDevice(screenTexture) {
     clearcoat: 0.8,
     clearcoatRoughness: 0.1,
   });
-  const bezelGeometry = new RoundedBoxGeometry(0.98, 0.56, 0.02, 4, 0.035);
+  const bezelGeometry = new RoundedBoxGeometry(SCREEN_WIDTH + 0.1, SCREEN_HEIGHT + 0.1, 0.02, 4, 0.03);
   const bezel = new THREE.Mesh(bezelGeometry, bezelMaterial);
-  bezel.position.set(0, 0.16, 0.1);
+  bezel.position.set(0, SCREEN_CENTER_Y, BODY_FRONT_Z + 0.006);
   group.add(bezel);
 
   const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture });
-  const screenGeometry = new THREE.PlaneGeometry(0.9, 0.48);
+  const screenGeometry = new THREE.PlaneGeometry(SCREEN_WIDTH, SCREEN_HEIGHT);
   const screen = new THREE.Mesh(screenGeometry, screenMaterial);
-  screen.position.set(0, 0.16, 0.112);
+  screen.position.set(0, SCREEN_CENTER_Y, BODY_FRONT_Z + 0.018);
   group.add(screen);
 
   const wheelGroup = new THREE.Group();
-  wheelGroup.position.set(0, -0.24, 0.1);
+  wheelGroup.position.set(0, WHEEL_CENTER_Y, BODY_FRONT_Z);
   group.add(wheelGroup);
 
   const ringMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xc7cbcc,
-    metalness: 0.85,
-    roughness: 0.28,
+    color: 0xc9cdce,
+    metalness: 0.8,
+    roughness: 0.25,
+    clearcoat: 0.5,
   });
-  const ringGeometry = new THREE.CylinderGeometry(0.34, 0.34, 0.02, 48);
+  const ringGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.03, 64);
   const ring = new THREE.Mesh(ringGeometry, ringMaterial);
   ring.rotation.x = Math.PI / 2;
+  ring.position.z = 0.01;
   wheelGroup.add(ring);
 
   const centerMaterial = new THREE.MeshPhysicalMaterial({
     color: ACCENT_HEX,
-    metalness: 0.4,
-    roughness: 0.35,
+    metalness: 0.35,
+    roughness: 0.3,
     emissive: ACCENT_HEX,
-    emissiveIntensity: 0.12,
+    emissiveIntensity: 0.15,
   });
-  const centerGeometry = new THREE.CylinderGeometry(0.13, 0.13, 0.03, 32);
+  const centerGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS * 0.38, WHEEL_RADIUS * 0.38, 0.04, 40);
   const center = new THREE.Mesh(centerGeometry, centerMaterial);
   center.rotation.x = Math.PI / 2;
-  center.position.z = 0.005;
+  center.position.z = 0.03;
   wheelGroup.add(center);
 
   const notchMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x8f9494,
-    metalness: 0.6,
-    roughness: 0.4,
+    color: 0x3a3f3e,
+    metalness: 0.5,
+    roughness: 0.5,
   });
-  const notchGeometry = new THREE.CircleGeometry(0.02, 12);
-  const notchRadius = 0.27;
+  const notchGeometry = new THREE.CylinderGeometry(0.032, 0.032, 0.02, 16);
+  const notchRadius = WHEEL_RADIUS * 0.78;
   for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2;
+    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
     const notch = new THREE.Mesh(notchGeometry, notchMaterial);
-    notch.position.set(Math.cos(angle) * notchRadius, Math.sin(angle) * notchRadius, 0.011);
+    notch.rotation.x = Math.PI / 2;
+    notch.position.set(Math.cos(angle) * notchRadius, Math.sin(angle) * notchRadius, 0.021);
     wheelGroup.add(notch);
   }
 
@@ -164,9 +188,9 @@ function buildDevice(screenTexture) {
     metalness: 0.3,
     roughness: 0.6,
   });
-  const portGeometry = new RoundedBoxGeometry(0.14, 0.03, 0.03, 2, 0.01);
+  const portGeometry = new RoundedBoxGeometry(0.16, 0.035, 0.03, 2, 0.012);
   const port = new THREE.Mesh(portGeometry, portMaterial);
-  port.position.set(0, -0.47, 0.06);
+  port.position.set(0, -BODY_HEIGHT / 2 + 0.04, BODY_FRONT_Z - 0.01);
   group.add(port);
 
   group.rotation.y = DEFAULT_ROTATION_Y;
@@ -177,33 +201,33 @@ export function createDeviceScene(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.15;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
   scene.background = null;
 
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-  camera.position.set(0, 0.35, 3.4);
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+  camera.position.set(0, 0.1, 5.1);
   camera.lookAt(0, 0, 0);
 
   const pmremGenerator = new THREE.PMREMGenerator(renderer);
   const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTexture;
 
-  const keyLight = new THREE.DirectionalLight(0xfff4e0, 2.2);
-  keyLight.position.set(2.4, 3, 2.2);
+  const keyLight = new THREE.DirectionalLight(0xfff4e0, 2.6);
+  keyLight.position.set(2.6, 3.2, 2.6);
   scene.add(keyLight);
 
-  const fillLight = new THREE.DirectionalLight(0xbfe9db, 0.8);
-  fillLight.position.set(-2.6, 1.4, -1.6);
+  const fillLight = new THREE.DirectionalLight(0xbfe9db, 0.9);
+  fillLight.position.set(-2.8, 1.6, -1.6);
   scene.add(fillLight);
 
-  const rimLight = new THREE.PointLight(0x35d0a5, 1.4, 8);
-  rimLight.position.set(0, 1.2, -2);
+  const rimLight = new THREE.PointLight(0x35d0a5, 1.6, 8);
+  rimLight.position.set(0, 1.4, -2.2);
   scene.add(rimLight);
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambient);
 
   const groundShadow = buildGroundShadow();
