@@ -12,8 +12,6 @@ describe('app', () => {
     const db = createDb(path.join(dataDir, 'mixtape.db'));
     const app = createApp({
       db,
-      sessionSecret: 'secret',
-      passwordHash: '$irrelevant$',
       tracksDir: path.join(dataDir, 'tracks'),
     });
     await request(app).get('/api/health').expect(200, { status: 'ok' });
