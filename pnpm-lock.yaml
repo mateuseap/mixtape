@@ -13,6 +13,10 @@ importers:
         version: 8.2.2
 
   client:
+    dependencies:
+      three:
+        specifier: ^0.185.0
+        version: 0.185.1
     devDependencies:
       vite:
         specifier: ^6.0.0
@@ -2109,6 +2113,10 @@ packages:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
+    dev: false
+
+  /three@0.185.1:
+    resolution: {integrity: sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==}
     dev: false
 
   /tinybench@2.9.0:
