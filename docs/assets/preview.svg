@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400">
+  <defs>
+    <radialGradient id="floorShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#131d1a" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#131d1a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eef0ef"/>
+      <stop offset="100%" stop-color="#c9cdce"/>
+    </linearGradient>
+    <linearGradient id="metalWide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e7ebea"/>
+      <stop offset="100%" stop-color="#c2c7c6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="720" height="400" fill="#f4f5f4"/>
+
+  <!-- brand mark, top-left: matches favicon.svg (ring + center dot + 4 cardinal dots) -->
+  <g transform="translate(36,32)">
+    <circle cx="0" cy="0" r="15" fill="#0c1a14"/>
+    <circle cx="0" cy="0" r="10.5" fill="none" stroke="#35d0a5" stroke-width="1.6"/>
+    <circle cx="0" cy="0" r="3.2" fill="#35d0a5"/>
+    <circle cx="0" cy="-8.5" r="1.4" fill="#35d0a5"/>
+    <circle cx="0" cy="8.5" r="1.4" fill="#35d0a5"/>
+    <circle cx="-8.5" cy="0" r="1.4" fill="#35d0a5"/>
+    <circle cx="8.5" cy="0" r="1.4" fill="#35d0a5"/>
+  </g>
+  <text x="64" y="38" font-family="Geist Mono, ui-monospace, monospace" font-size="17" font-weight="700" fill="#12211c">mixtape</text>
+
+  <!-- MP3 click-wheel device -->
+  <g transform="translate(70,86)">
+    <ellipse cx="115" cy="292" rx="118" ry="18" fill="url(#floorShadow)"/>
+    <rect x="0" y="0" width="230" height="278" rx="24" fill="url(#metal)" stroke="#b7bcbc" stroke-width="1.5"/>
+
+    <rect x="18" y="20" width="194" height="82" rx="7" fill="#0a1210"/>
+    <rect x="25" y="27" width="180" height="68" rx="3" fill="#0c1a14"/>
+    <text x="35" y="52" font-family="Geist Mono, ui-monospace, monospace" font-size="15" font-weight="700" fill="#a8f5d6">Mixtape</text>
+    <text x="35" y="70" font-family="Geist Mono, ui-monospace, monospace" font-size="10" fill="#8fe6c4" opacity="0.75">no track selected</text>
+    <polyline points="35,84 48,79 60,88 73,76 85,90 98,80 111,86 123,78 136,84 149,80 162,86 175,79 188,85"
+      fill="none" stroke="#35d0a5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <circle cx="115" cy="196" r="82" fill="#d7dbdb" stroke="#b7bcbc" stroke-width="1.5"/>
+    <!-- printed zone glyphs, like the real click wheel -->
+    <g fill="#2b3230">
+      <rect x="111" y="122" width="8" height="24" rx="2"/>
+      <rect x="103" y="130" width="24" height="8" rx="2"/>
+      <rect x="111" y="248" width="8" height="24" rx="2"/>
+      <path d="M52 188 L68 178 L68 198 Z"/>
+      <path d="M40 188 L56 178 L56 198 Z"/>
+      <path d="M178 188 L162 178 L162 198 Z"/>
+      <path d="M190 188 L174 178 L174 198 Z"/>
+    </g>
+    <circle cx="115" cy="196" r="38" fill="#0f7a63"/>
+    <!-- static combined play/pause glyph, same icon shipped on the real device -->
+    <path d="M103 183 L120 196 L103 209 Z" fill="#eef7f2"/>
+    <rect x="126" y="184" width="6" height="24" rx="1.5" fill="#eef7f2"/>
+    <rect x="136" y="184" width="6" height="24" rx="1.5" fill="#eef7f2"/>
+  </g>
+
+  <!-- CD player -->
+  <g transform="translate(360,150)">
+    <ellipse cx="145" cy="176" rx="150" ry="18" fill="url(#floorShadow)"/>
+    <rect x="0" y="0" width="290" height="164" rx="20" fill="url(#metalWide)" stroke="#b0b5b4" stroke-width="1.5"/>
+
+    <circle cx="52" cy="82" r="48" fill="#dadedf" stroke="#9aa0a0" stroke-width="2"/>
+    <circle cx="52" cy="82" r="42" fill="#1d2422"/>
+    <circle cx="52" cy="82" r="34" fill="none" stroke="#333c3a" stroke-width="2"/>
+    <circle cx="52" cy="82" r="24" fill="none" stroke="#333c3a" stroke-width="2"/>
+    <circle cx="52" cy="82" r="14" fill="none" stroke="#333c3a" stroke-width="2"/>
+
+    <circle cx="238" cy="82" r="48" fill="#dadedf" stroke="#9aa0a0" stroke-width="2"/>
+    <circle cx="238" cy="82" r="42" fill="#1d2422"/>
+    <circle cx="238" cy="82" r="34" fill="none" stroke="#333c3a" stroke-width="2"/>
+    <circle cx="238" cy="82" r="24" fill="none" stroke="#333c3a" stroke-width="2"/>
+    <circle cx="238" cy="82" r="14" fill="none" stroke="#333c3a" stroke-width="2"/>
+
+    <!-- disc bay + tilted cover art, spins while playing in the real device -->
+    <g transform="translate(145,50) rotate(-18)">
+      <circle r="30" fill="#11201b"/>
+      <circle r="26" fill="#5aa9e6"/>
+      <circle r="26" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="6" stroke-dasharray="1 5.3"/>
+      <circle r="7" fill="#4a5250"/>
+    </g>
+
+    <rect x="106" y="94" width="78" height="34" rx="3" fill="#0c1a14"/>
+    <text x="114" y="112" font-family="Geist Mono, ui-monospace, monospace" font-size="11" font-weight="700" fill="#8fe6c4">CD 01 &#9654;</text>
+    <text x="114" y="123" font-family="Geist Mono, ui-monospace, monospace" font-size="8" fill="#8fe6c4" opacity="0.7">Now Playing</text>
+
+    <g fill="#dadedf" stroke="#9aa0a0" stroke-width="1">
+      <rect x="102" y="136" width="20" height="20" rx="4"/>
+      <rect x="126" y="136" width="20" height="20" rx="4"/>
+      <rect x="150" y="136" width="20" height="20" rx="4"/>
+      <rect x="174" y="136" width="20" height="20" rx="4"/>
+    </g>
+    <g fill="#1d2422">
+      <path d="M107 141 L115 146 L107 151 Z"/>
+      <path d="M115 141 L123 146 L115 151 Z"/>
+      <path d="M133 141 L143 146 L133 151 Z"/>
+      <rect x="146" y="141" width="4" height="10" rx="1"/>
+      <rect x="152" y="141" width="4" height="10" rx="1"/>
+      <rect x="176" y="141" width="12" height="10" rx="1.5"/>
+    </g>
+  </g>
+</svg>

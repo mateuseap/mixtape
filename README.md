@@ -12,9 +12,7 @@ Open, no-login library · Interactive 3D devices · No subscriptions.
 [![stars](https://badgen.net/github/stars/mateuseap/mixtape)](https://github.com/mateuseap/mixtape/stargazers)
 [![visitors](https://visitor-badge.laobi.icu/badge?page_id=mateuseap.mixtape)](https://github.com/mateuseap/mixtape)
 
-<br />
-
-<img src="docs/assets/preview.png" width="720" alt="Mixtape: interactive 3D sound equipment, an MP3 click wheel and a CD player" />
+<img src="docs/assets/preview.svg" width="720" alt="Mixtape: interactive 3D sound equipment, an MP3 click wheel and a CD player" />
 
 <br />
 
