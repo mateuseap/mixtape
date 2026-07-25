@@ -7,9 +7,9 @@ Open, no-login library · Upload and stream your own files · No subscriptions.
 
 [![CI](https://github.com/mateuseap/mixtape/actions/workflows/ci.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
 [![Publish Images](https://github.com/mateuseap/mixtape/actions/workflows/publish-images.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
-[![version](https://img.shields.io/github/v/tag/mateuseap/mixtape?sort=semver&style=flat-square&label=version&color=35d0a5)](https://github.com/mateuseap/mixtape/releases)
-[![license](https://img.shields.io/github/license/mateuseap/mixtape?style=flat-square&color=5ba3b0)](LICENSE)
-[![stars](https://img.shields.io/github/stars/mateuseap/mixtape?style=flat-square)](https://github.com/mateuseap/mixtape/stargazers)
+[![version](https://badgen.net/github/tag/mateuseap/mixtape?label=version&color=96bc4b)](https://github.com/mateuseap/mixtape/releases)
+[![license](https://badgen.net/github/license/mateuseap/mixtape?color=5ba3b0)](LICENSE)
+[![stars](https://badgen.net/github/stars/mateuseap/mixtape)](https://github.com/mateuseap/mixtape/stargazers)
 [![visitors](https://visitor-badge.laobi.icu/badge?page_id=mateuseap.mixtape)](https://github.com/mateuseap/mixtape)
 
 <br />
@@ -41,7 +41,7 @@ Streaming services do not keep your files, and existing self-hosted media server
 | 🔀 **Shuffle & repeat** | Standard playback modes, no page reload |
 | 🌍 **Open by default** | No accounts, no password, anyone with the link can add and play |
 
-## Quick start
+## Quick Start
 
 ```bash
 git clone https://github.com/mateuseap/mixtape && cd mixtape
@@ -50,7 +50,9 @@ cp .env.example server/.env
 pnpm dev
 ```
 
-## How it works
+Open `http://localhost:5173`, no login step needed.
+
+## How It Works
 
 A single Node/Express service serves the built client and a small JSON API from one process. Uploaded MP3 files and a SQLite metadata database live on disk (`DATA_DIR`, mounted from a persistent volume in production). ID3 tags are parsed on upload for title, artist, album, and duration, falling back to the filename when tags are missing. Playback uses HTTP Range requests so seeking and scrubbing work without loading the whole file.
 
@@ -63,7 +65,15 @@ A single Node/Express service serves the built client and a small JSON API from 
 | Auth | None, open access library |
 | Tests | vitest, supertest |
 | Deploy | Docker, GitHub Actions to GHCR |
-| Deployment | [homelab](https://github.com/mateuseap/homelab) GitOps cluster |
+
+## Documentation
+
+| Doc | Description |
+|-----|------------|
+| [Design Spec](https://github.com/mateuseap/homelab/blob/main/docs/specs/2026-07-25-mixtape-design.md) | Architecture decisions and rationale |
+| [Deployment Manifests](https://github.com/mateuseap/homelab/tree/main/apps/mixtape) | Kubernetes Deployment, Service, Ingress, PVC |
+
+Mixtape's design docs live in the [homelab](https://github.com/mateuseap/homelab) repo, alongside every other app it deploys, rather than in this repo.
 
 ## Contributing
 
