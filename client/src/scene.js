@@ -6,9 +6,13 @@ import {
   addStandardLighting,
   makeGlyphTexture,
   drawTriangle,
+  drawPlayPauseGlyph,
   createDragRotateController,
   startAnimationLoop,
 } from './sceneCore.js';
+
+const MARQUEE_SPEED = 46; // px/sec
+const MARQUEE_GAP = 48; // px of blank space between loop repeats
 
 const ACCENT_HEX = 0x0f7a63;
 const DEFAULT_ROTATION_Y = 0.35;
@@ -25,8 +29,10 @@ function buildScreenTexture() {
 // The screen shows more than just the track: title/artist up top, a live
 // oscilloscope-style waveform from the actual audio in the middle (flat
 // when nothing is playing), and a segmented volume meter at the bottom,
-// like the level displays real portable players had.
-function drawScreen(canvas, texture, { title, artist, volume, waveform }) {
+// like the level displays real portable players had. Only the screen shows
+// live state (play/pause status, the moving waveform) - the physical
+// buttons print static icons, same as a real device.
+function drawScreen(canvas, texture, { title, artist, volume, waveform, isPlaying, marqueeTime }) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
@@ -34,18 +40,49 @@ function drawScreen(canvas, texture, { title, artist, volume, waveform }) {
 
   ctx.fillStyle = '#0c1a14';
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = 'rgba(143, 230, 196, 0.25)';
+  ctx.strokeStyle = 'rgba(143, 230, 196, 0.3)';
   ctx.lineWidth = 4;
   ctx.strokeRect(8, 8, w - 16, h - 16);
 
-  ctx.fillStyle = '#8fe6c4';
-  ctx.font = '600 30px "Geist Mono", ui-monospace, monospace';
   ctx.textBaseline = 'middle';
-  ctx.fillText(truncate(ctx, title || 'no track selected', w - 60), 26, 46);
 
-  ctx.font = '400 20px "Geist Mono", ui-monospace, monospace';
-  ctx.fillStyle = 'rgba(143, 230, 196, 0.7)';
-  ctx.fillText(truncate(ctx, artist || '', w - 60), 26, 78);
+  // Play/pause status, top-right. This is the one place that state now
+  // shows up, since the center button no longer swaps its icon.
+  ctx.font = '700 16px "Geist Mono", ui-monospace, monospace';
+  ctx.fillStyle = isPlaying ? '#4dedb8' : 'rgba(143, 230, 196, 0.5)';
+  ctx.textAlign = 'right';
+  ctx.fillText(isPlaying ? '▶ PLAYING' : '‖ PAUSED', w - 26, 30);
+  ctx.textAlign = 'left';
+
+  // Title marquee: rolls the full title across when it doesn't fit, so a
+  // long name is eventually fully readable instead of getting cut off with
+  // an ellipsis forever.
+  const titleAreaX = 26;
+  const titleAreaWidth = w - 52 - 130;
+  const titleText = title || 'no track selected';
+  ctx.font = '700 30px "Geist Mono", ui-monospace, monospace';
+  ctx.fillStyle = '#a8f5d6';
+  const titleWidth = ctx.measureText(titleText).width;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(titleAreaX, 24, titleAreaWidth, 34);
+  ctx.clip();
+  if (titleWidth > titleAreaWidth) {
+    const loopWidth = titleWidth + MARQUEE_GAP;
+    const offset = ((marqueeTime ?? 0) * MARQUEE_SPEED) % loopWidth;
+    let x = titleAreaX - offset;
+    while (x < titleAreaX + titleAreaWidth) {
+      ctx.fillText(titleText, x, 46);
+      x += loopWidth;
+    }
+  } else {
+    ctx.fillText(titleText, titleAreaX, 46);
+  }
+  ctx.restore();
+
+  ctx.font = '500 20px "Geist Mono", ui-monospace, monospace';
+  ctx.fillStyle = 'rgba(168, 245, 214, 0.8)';
+  ctx.fillText(truncate(ctx, artist || '', w - 60), 26, 80);
 
   // Waveform band.
   const waveTop = 96;
@@ -110,15 +147,8 @@ function drawMinus(ctx, s) {
   ctx.fillRect(s * 0.18, s * 0.5 - bar / 2, s * 0.64, bar);
 }
 
-function drawPause(ctx, s) {
-  const barW = s * 0.18;
-  ctx.fillRect(s * 0.34 - barW / 2, s * 0.28, barW, s * 0.44);
-  ctx.fillRect(s * 0.66 - barW / 2, s * 0.28, barW, s * 0.44);
-}
-
 const GLYPH_TEXTURES = {
-  play: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s * 0.53, s / 2, s * 0.34, 0)),
-  pause: makeGlyphTexture((ctx, s) => drawPause(ctx, s)),
+  playPause: makeGlyphTexture((ctx, s) => drawPlayPauseGlyph(ctx, s)),
   next: makeGlyphTexture((ctx, s) => {
     drawTriangle(ctx, s * 0.38, s / 2, s * 0.22, 0);
     drawTriangle(ctx, s * 0.68, s / 2, s * 0.22, 0);
@@ -209,11 +239,12 @@ function buildDevice(screenTexture) {
   wheelGroup.add(center);
 
   // Printed icons so each clickable zone shows what it does, like a real
-  // click wheel: a play/pause glyph on the center button (swapped
-  // dynamically, see setPlaying), and volume/skip glyphs at the ring's
-  // four cardinal zones. These are children of wheelGroup directly, not
-  // ring, so "up" is simply +Y with no axis flip needed; a default
-  // PlaneGeometry already faces +Z toward the camera.
+  // click wheel: a static combined play/pause glyph on the center button
+  // (real devices never swap the button's own icon, see setPlaying), and
+  // volume/skip glyphs at the ring's four cardinal zones. These are
+  // children of wheelGroup directly, not ring, so "up" is simply +Y with
+  // no axis flip needed; a default PlaneGeometry already faces +Z toward
+  // the camera.
   const GLYPH_SIZE = 0.23;
   const GLYPH_RADIUS = WHEEL_RADIUS * 0.72;
   // Well proud of the ring's own front face (~0.025): too close and the
@@ -233,7 +264,7 @@ function buildDevice(screenTexture) {
     return mesh;
   }
 
-  const playPauseGlyph = addGlyph(GLYPH_TEXTURES.play, 0, 0);
+  addGlyph(GLYPH_TEXTURES.playPause, 0, 0);
   addGlyph(GLYPH_TEXTURES.volumeUp, 0, GLYPH_RADIUS);
   addGlyph(GLYPH_TEXTURES.volumeDown, 0, -GLYPH_RADIUS);
   addGlyph(GLYPH_TEXTURES.previous, -GLYPH_RADIUS, 0);
@@ -247,7 +278,7 @@ function buildDevice(screenTexture) {
   group.add(port);
 
   group.rotation.y = DEFAULT_ROTATION_Y;
-  return { group, wheelGroup, ring, center, playPauseGlyph };
+  return { group, wheelGroup, ring, center };
 }
 
 // Classifies a click on the ring into one of four zones by the angle of the
@@ -282,7 +313,7 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
   const pmremGenerator = addStandardLighting(scene, renderer);
 
   const screenTexture = buildScreenTexture();
-  const { group: device, ring, center, playPauseGlyph } = buildDevice(screenTexture.texture);
+  const { group: device, ring, center } = buildDevice(screenTexture.texture);
   scene.add(device);
 
   let lastTitle = '';
@@ -354,9 +385,13 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
 
   let isPlaying = false;
   let screenRedrawAccum = 0;
+  let marqueeTime = 0;
   const SCREEN_REDRAW_INTERVAL = 1 / 20; // the waveform doesn't need 60fps to read as live
 
   const stop = startAnimationLoop(renderer, scene, camera, controller, (delta) => {
+    // Tracked every frame, independent of the redraw throttle below, so the
+    // marquee's speed doesn't change if the redraw interval ever does.
+    marqueeTime += delta;
     screenRedrawAccum += delta;
     if (screenRedrawAccum < SCREEN_REDRAW_INTERVAL) return;
     screenRedrawAccum = 0;
@@ -368,6 +403,8 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
       artist: lastArtist,
       volume: lastVolume,
       waveform: isPlaying ? waveformBuffer : null,
+      isPlaying,
+      marqueeTime,
     });
   });
 
@@ -381,8 +418,6 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
     },
     setPlaying(playing) {
       isPlaying = playing;
-      playPauseGlyph.material.map = playing ? GLYPH_TEXTURES.pause : GLYPH_TEXTURES.play;
-      playPauseGlyph.material.needsUpdate = true;
     },
     resetRotation: controller.resetRotation,
     dispose() {
