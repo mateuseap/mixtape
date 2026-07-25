@@ -14,7 +14,7 @@
         <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" width="40" height="40" />
         <div class="brand-text">
           <span class="brand-word">mixtape</span>
-          <span class="brand-sub">MP3 PLAYER</span>
+          <span class="brand-sub">SOUND EQUIPMENT</span>
         </div>
       </div>
       <div class="nav-actions">
@@ -32,7 +32,7 @@
     <section class="hero">
       <div class="eyebrow">
         <span class="eyebrow-rule" aria-hidden="true"></span>
-        <span>3D MP3 PLAYER</span>
+        <span>3D SOUND EQUIPMENT</span>
       </div>
       <h1 class="headline">Your music.<br />Made real.</h1>
       <div class="status-pill">
@@ -40,6 +40,11 @@
         OPEN LIBRARY &middot; ANYONE ADDS
       </div>
     </section>
+
+    <div class="device-switcher" role="tablist" aria-label="Sound equipment">
+      <button id="device-mp3" class="device-tab active" type="button" role="tab" aria-selected="true">MP3 Player</button>
+      <button id="device-cd" class="device-tab" type="button" role="tab" aria-selected="false">CD Player</button>
+    </div>
 
     <section class="stage">
       <div class="mode-card">
@@ -80,7 +85,7 @@
       </button>
     </section>
 
-    <p class="drag-hint"><span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE &middot; CLICK CENTER TO PLAY <span aria-hidden="true">&rarr;</span></p>
+    <p class="drag-hint" id="drag-hint"><span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE &middot; CLICK CENTER TO PLAY <span aria-hidden="true">&rarr;</span></p>
 
     <section class="player-bar-wrap">
       <div class="player-bar" id="player-bar"></div>
