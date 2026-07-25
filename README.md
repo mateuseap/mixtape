@@ -2,8 +2,8 @@
 
 # 🎵 Mixtape
 
-**Your MP3s, your server, a retro player.**
-Password-gated library · Upload and stream your own files · No subscriptions.
+**Your MP3s, your server, a 3D player.**
+Open, no-login library · Upload and stream your own files · No subscriptions.
 
 [![CI](https://github.com/mateuseap/mixtape/actions/workflows/ci.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
 [![version](https://img.shields.io/github/v/tag/mateuseap/mixtape?sort=semver&style=flat-square&label=version&color=35d0a5)](https://github.com/mateuseap/mixtape/releases)
@@ -18,22 +18,20 @@ Password-gated library · Upload and stream your own files · No subscriptions.
 
 ## Why Mixtape?
 
-Streaming services do not keep your files, and existing self-hosted media servers are built for entire collections with transcoding, users, and settings you do not need for a personal MP3 folder. Mixtape is a small, single-purpose alternative: upload MP3s, get a retro player, keep everything on your own server.
+Streaming services do not keep your files, and existing self-hosted media servers are built for entire collections with transcoding, users, and settings you do not need for a personal MP3 folder. Mixtape is a small, single-purpose alternative: upload MP3s, get a real-time 3D player, keep everything on your own server.
 
 - **Your files.** MP3s live on your server, not a third party's.
-- **Retro UI.** A player styled after 2000s MP3 players, not a generic table.
-- **One password.** No accounts, no OAuth, just a shared password gate.
+- **Interactive 3D UI.** A WebGL device you can drag to rotate, with a live LCD readout of the current track, instead of a generic table.
+- **Open library.** No accounts, no password gate. Anyone with access to the app can add or play tracks.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/mateuseap/mixtape && cd mixtape
 pnpm install
-cp .env.example server/.env # fill in SESSION_SECRET and PASSWORD_HASH
+cp .env.example server/.env
 pnpm dev
 ```
-
-`PASSWORD_HASH` is a bcrypt hash: `node -e "require('bcryptjs').hash('your-password', 10).then(console.log)"`.
 
 ## How it works
 
@@ -44,8 +42,8 @@ A single Node/Express service serves the built client and a small JSON API from 
 | Layer | Technology |
 |-------|-----------|
 | Server | Node 22, Express, better-sqlite3, multer, music-metadata |
-| Client | Vite, vanilla JavaScript, no framework |
-| Auth | Single shared password, signed httpOnly session cookie |
+| Client | Vite, vanilla JavaScript, no framework, three.js |
+| Auth | None, open access library |
 | Tests | vitest, supertest |
 | Deploy | Docker, GitHub Actions to GHCR |
 
