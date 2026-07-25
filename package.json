@@ -1,0 +1,20 @@
+{
+  "name": "mixtape",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A password-gated MP3 library with a retro player UI",
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter client dev\" \"pnpm --filter server dev\"",
+    "test": "pnpm --filter server test && pnpm --filter client test",
+    "build": "pnpm --filter client build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.6"
+}
