@@ -87,7 +87,7 @@ function syncDeviceDisplay() {
     scene.updateScreen(track ? track.title : '', track ? track.artist ?? '' : '');
     scene.setVolume(audio.volume);
   } else {
-    scene.setTrackInfo(track ? track.title : '', state.position >= 0 ? state.position + 1 : 1);
+    scene.setTrackInfo(track ? track.title : '', state.position >= 0 ? state.position + 1 : 1, track ? track.id : null);
     scene.setDiscLoaded(!!track);
   }
   scene.setPlaying(state.isPlaying);

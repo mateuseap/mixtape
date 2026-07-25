@@ -81,6 +81,21 @@ export function drawTriangle(ctx, cx, cy, size, rotationDeg) {
   ctx.restore();
 }
 
+// A single static combined play/pause icon. Real transport controls print
+// one fixed glyph per button and never change it - the button itself never
+// tells you whether you're about to play or pause, only the device's own
+// display (a spinning reel, a lit LED, an LCD readout) shows which state
+// you're in. Used identically by both the MP3 wheel's center button and the
+// CD player's play/pause button, so neither swaps its icon based on state.
+export function drawPlayPauseGlyph(ctx, s) {
+  drawTriangle(ctx, s * 0.3, s / 2, s * 0.22, 0);
+  const barW = s * 0.1;
+  const barH = s * 0.42;
+  const barY = s / 2 - barH / 2;
+  ctx.fillRect(s * 0.58, barY, barW, barH);
+  ctx.fillRect(s * 0.76, barY, barW, barH);
+}
+
 // Handles the full pointer interaction contract shared by every device:
 // drag-to-rotate around Y with momentum, idle auto-rotation that pauses
 // the instant the user touches the canvas, hover cursor feedback, and
