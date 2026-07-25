@@ -18,4 +18,4 @@ All three must pass. CI re-runs them on every PR.
 
 ## Secrets
 
-Never commit `.env` or real password hashes. `.env.example` documents the required variables.
+Never commit `.env`. `.env.example` documents the required variables.

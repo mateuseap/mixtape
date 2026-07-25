@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchTracks, login } from '../src/api.js';
+import { fetchTracks, deleteTrack } from '../src/api.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -13,7 +13,7 @@ describe('api', () => {
   });
 
   it('throws the server error message on a failed response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({ error: 'invalid password' }) }));
-    await expect(login('wrong')).rejects.toThrow('invalid password');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: 'track not found' }) }));
+    await expect(deleteTrack('some-id')).rejects.toThrow('track not found');
   });
 });
