@@ -6,9 +6,15 @@
 Open, no-login library · Upload and stream your own files · No subscriptions.
 
 [![CI](https://github.com/mateuseap/mixtape/actions/workflows/ci.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
+[![Publish Images](https://github.com/mateuseap/mixtape/actions/workflows/publish-images.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
 [![version](https://img.shields.io/github/v/tag/mateuseap/mixtape?sort=semver&style=flat-square&label=version&color=35d0a5)](https://github.com/mateuseap/mixtape/releases)
 [![license](https://img.shields.io/github/license/mateuseap/mixtape?style=flat-square&color=5ba3b0)](LICENSE)
 [![stars](https://img.shields.io/github/stars/mateuseap/mixtape?style=flat-square)](https://github.com/mateuseap/mixtape/stargazers)
+[![visitors](https://visitor-badge.laobi.icu/badge?page_id=mateuseap.mixtape)](https://github.com/mateuseap/mixtape)
+
+<br />
+
+<img src="docs/assets/preview.png" width="720" alt="Mixtape: an interactive 3D MP3 player" />
 
 <br />
 
@@ -23,6 +29,17 @@ Streaming services do not keep your files, and existing self-hosted media server
 - **Your files.** MP3s live on your server, not a third party's.
 - **Interactive 3D UI.** A WebGL device you can drag to rotate, with a live LCD readout of the current track, instead of a generic table.
 - **Open library.** No accounts, no password gate. Anyone with access to the app can add or play tracks.
+
+## Features
+
+|  |  |
+|--|--|
+| 🎛 **3D device** | A draggable, auto-rotating WebGL player built with Three.js, with a live canvas-texture LCD screen |
+| 📤 **Drop-in uploads** | Pick an MP3 and it appears in the library immediately, no form fields required |
+| 🏷 **Automatic tagging** | ID3 title/artist/album/duration parsed on upload, falls back to the filename |
+| ⏩ **Real seeking** | HTTP Range-request streaming, so scrubbing does not need the whole file downloaded |
+| 🔀 **Shuffle & repeat** | Standard playback modes, no page reload |
+| 🌍 **Open by default** | No accounts, no password, anyone with the link can add and play |
 
 ## Quick start
 
@@ -46,10 +63,11 @@ A single Node/Express service serves the built client and a small JSON API from 
 | Auth | None, open access library |
 | Tests | vitest, supertest |
 | Deploy | Docker, GitHub Actions to GHCR |
+| Deployment | [homelab](https://github.com/mateuseap/homelab) GitOps cluster |
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. Branch from `develop`, use Conventional Commits, keep the test suite green, and assign **@mateuseap** for review.
 
 ## License
 
