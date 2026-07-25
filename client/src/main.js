@@ -1,83 +1,108 @@
 import './style.css';
-import { login, logout, fetchTracks, uploadTrack, deleteTrack, streamUrl } from './api.js';
+import { fetchTracks, uploadTrack, deleteTrack, streamUrl } from './api.js';
 import { createPlayerState, currentTrack, play, pause, next, prev, cycleRepeat, toggleShuffle } from './player.js';
+import { createDeviceScene } from './scene.js';
 
-const app = document.getElementById('app');
 const audio = new Audio();
 let state = createPlayerState([]);
 
-function renderLogin(error) {
-  app.innerHTML = `
-    <form id="login-form" class="login">
-      <h1>mixtape</h1>
-      <input id="password" type="password" placeholder="password" autofocus />
-      <button type="submit">enter</button>
-      ${error ? `<p class="error">${error}</p>` : ''}
-    </form>
+const playerBar = document.getElementById('player-bar');
+const trackRow = document.getElementById('track-row');
+const shuffleToggle = document.getElementById('shuffle-toggle');
+const repeatToggle = document.getElementById('repeat-toggle');
+const resetViewBtn = document.getElementById('reset-view');
+const addTrackBtn = document.getElementById('add-track-btn');
+const fileInput = document.getElementById('file-input');
+const scrollLeftBtn = document.getElementById('scroll-left');
+const scrollRightBtn = document.getElementById('scroll-right');
+const canvas = document.getElementById('device-canvas');
+
+const scene = createDeviceScene(canvas);
+
+function hashHue(id) {
+  const str = String(id ?? 'x');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % 360;
+}
+
+function artStyle(id) {
+  const hue = hashHue(id);
+  return `background: linear-gradient(135deg, hsl(${hue}, 62%, 52%), hsl(${(hue + 40) % 360}, 55%, 38%));`;
+}
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const total = Math.floor(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function renderPlayerBar() {
+  const track = currentTrack(state);
+  playerBar.innerHTML = `
+    <div class="pb-art" style="${artStyle(track?.id)}">${track ? '&#9835;' : ''}</div>
+    <div class="pb-meta">
+      <span class="pb-title">${track ? escapeHtml(track.title) : 'No track selected'}</span>
+      <span class="pb-artist">${track ? escapeHtml(track.artist ?? '') : ''}</span>
+    </div>
+    <div class="pb-controls">
+      <button id="pb-prev" class="pb-btn" type="button" aria-label="Previous track">${iconPrev()}</button>
+      <button id="pb-play" class="pb-btn pb-play" type="button" aria-label="${state.isPlaying ? 'Pause' : 'Play'}">${state.isPlaying ? iconPause() : iconPlay()}</button>
+      <button id="pb-next" class="pb-btn" type="button" aria-label="Next track">${iconNext()}</button>
+    </div>
+    <span class="pb-time" id="pb-elapsed">0:00</span>
+    <input id="pb-seek" class="pb-seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek" />
+    <span class="pb-time" id="pb-total">0:00</span>
+    <span class="pb-volume-icon">${iconVolume()}</span>
+    <input id="pb-volume" class="pb-volume" type="range" min="0" max="1" step="0.01" value="${audio.volume}" aria-label="Volume" />
   `;
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const password = document.getElementById('password').value;
-    try {
-      await login(password);
-      await loadLibrary();
-    } catch (err) {
-      renderLogin(err.message);
-    }
+  wirePlayerBar();
+}
+
+function wirePlayerBar() {
+  document.getElementById('pb-prev').addEventListener('click', () => setState(prev(state)));
+  document.getElementById('pb-play').addEventListener('click', () => {
+    setState(state.isPlaying ? pause(state) : play(state));
+  });
+  document.getElementById('pb-next').addEventListener('click', () => setState(next(state)));
+  document.getElementById('pb-seek').addEventListener('input', (e) => {
+    if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration;
+  });
+  document.getElementById('pb-volume').addEventListener('input', (e) => {
+    audio.volume = Number(e.target.value);
   });
 }
 
-function renderPlayer() {
-  const track = currentTrack(state);
-  app.innerHTML = `
-    <div class="device">
-      <div class="lcd">
-        <p class="lcd-title">${track ? track.title : 'no track selected'}</p>
-        <p class="lcd-artist">${track?.artist ?? ''}</p>
-        <input id="seek" type="range" min="0" max="1" step="0.01" value="0" />
-      </div>
-      <div class="controls">
-        <button id="prev" title="previous">back</button>
-        <button id="play-pause">${state.isPlaying ? 'pause' : 'play'}</button>
-        <button id="next" title="next">skip</button>
-        <button id="shuffle" class="${state.shuffle ? 'active' : ''}" title="shuffle">shuffle</button>
-        <button id="repeat" class="${state.repeat !== 'off' ? 'active' : ''}" title="repeat">${state.repeat === 'one' ? 'repeat one' : 'repeat'}</button>
-      </div>
-      <button id="logout">log out</button>
-    </div>
-    <section class="library">
-      <form id="upload-form">
-        <input id="file" type="file" accept="audio/mpeg,.mp3" />
-        <button type="submit">upload</button>
-      </form>
-      <ul id="track-list"></ul>
-    </section>
-  `;
-  renderTrackList();
-  syncAudio();
-  wirePlayerControls();
-}
-
-function renderTrackList() {
-  const list = document.getElementById('track-list');
-  list.innerHTML = state.tracks
-    .map(
-      (t, i) => `
-      <li class="${currentTrack(state)?.id === t.id ? 'current' : ''}" data-index="${i}">
-        <span class="track-title">${t.title}</span>
-        <span class="track-artist">${t.artist ?? ''}</span>
-        <button class="delete" data-id="${t.id}" aria-label="delete">remove</button>
-      </li>
-    `,
-    )
+function renderTrackRow() {
+  if (state.tracks.length === 0) {
+    trackRow.innerHTML = '<p class="library-empty">No tracks yet. Add an MP3 to get started.</p>';
+    return;
+  }
+  trackRow.innerHTML = state.tracks
+    .map((t, i) => {
+      const isCurrent = currentTrack(state)?.id === t.id;
+      return `
+        <button class="track-card ${isCurrent ? 'current' : ''}" data-index="${i}" type="button">
+          <span class="track-card-art" style="${artStyle(t.id)}">&#9835;</span>
+          <span class="track-card-title">${escapeHtml(t.title)}</span>
+          <span class="track-card-artist">${escapeHtml(t.artist ?? '')}</span>
+          <span class="track-card-delete" data-id="${t.id}" role="button" tabindex="0" aria-label="Delete track">&times;</span>
+        </button>
+      `;
+    })
     .join('');
-  list.querySelectorAll('li').forEach((li) => {
-    li.addEventListener('click', (e) => {
-      if (e.target.closest('.delete')) return;
-      setState(play(state, Number(li.dataset.index)));
+  trackRow.querySelectorAll('.track-card').forEach((card) => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.track-card-delete')) return;
+      setState(play(state, Number(card.dataset.index)));
     });
   });
-  list.querySelectorAll('.delete').forEach((btn) => {
+  trackRow.querySelectorAll('.track-card-delete').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await deleteTrack(btn.dataset.id);
@@ -86,29 +111,36 @@ function renderTrackList() {
   });
 }
 
-function wirePlayerControls() {
-  document.getElementById('play-pause').addEventListener('click', () => {
-    setState(state.isPlaying ? pause(state) : play(state));
-  });
-  document.getElementById('prev').addEventListener('click', () => setState(prev(state)));
-  document.getElementById('next').addEventListener('click', () => setState(next(state)));
-  document.getElementById('shuffle').addEventListener('click', () => setState(toggleShuffle(state)));
-  document.getElementById('repeat').addEventListener('click', () => setState(cycleRepeat(state)));
-  document.getElementById('logout').addEventListener('click', async () => {
-    await logout();
-    audio.pause();
-    renderLogin();
-  });
-  document.getElementById('seek').addEventListener('input', (e) => {
-    if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration;
-  });
-  document.getElementById('upload-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const file = document.getElementById('file').files[0];
-    if (!file) return;
-    await uploadTrack(file);
-    await loadLibrary();
-  });
+function renderModeControls() {
+  shuffleToggle.classList.toggle('active', state.shuffle);
+  repeatToggle.classList.toggle('active', state.repeat !== 'off');
+  repeatToggle.textContent = state.repeat === 'one' ? 'REPEAT 1' : 'REPEAT';
+}
+
+function iconPlay() {
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+}
+function iconPause() {
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+}
+function iconPrev() {
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14l-11-7z"/></svg>';
+}
+function iconNext() {
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>';
+}
+function iconVolume() {
+  return '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 9v6h4l5 5V4L8 9z"/></svg>';
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[c]);
 }
 
 function syncAudio() {
@@ -119,27 +151,61 @@ function syncAudio() {
   }
   if (state.isPlaying) audio.play().catch(() => {});
   else audio.pause();
+  scene.updateScreen(track ? track.title : '', track ? track.artist ?? '' : '');
 }
 
 function setState(newState) {
   state = newState;
-  renderPlayer();
+  renderPlayerBar();
+  renderTrackRow();
+  renderModeControls();
+  syncAudio();
 }
 
 audio.addEventListener('ended', () => setState(next(state)));
 audio.addEventListener('timeupdate', () => {
-  const seek = document.getElementById('seek');
+  const seek = document.getElementById('pb-seek');
+  const elapsed = document.getElementById('pb-elapsed');
+  const total = document.getElementById('pb-total');
   if (seek && audio.duration) seek.value = audio.currentTime / audio.duration;
+  if (elapsed) elapsed.textContent = formatTime(audio.currentTime);
+  if (total) total.textContent = formatTime(audio.duration);
+});
+audio.addEventListener('loadedmetadata', () => {
+  const total = document.getElementById('pb-total');
+  if (total) total.textContent = formatTime(audio.duration);
+});
+
+shuffleToggle.addEventListener('click', () => setState(toggleShuffle(state)));
+repeatToggle.addEventListener('click', () => setState(cycleRepeat(state)));
+resetViewBtn.addEventListener('click', () => scene.resetRotation());
+addTrackBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  await uploadTrack(file);
+  fileInput.value = '';
+  await loadLibrary();
+});
+scrollLeftBtn.addEventListener('click', () => {
+  trackRow.scrollBy({ left: -320, behavior: 'smooth' });
+});
+scrollRightBtn.addEventListener('click', () => {
+  trackRow.scrollBy({ left: 320, behavior: 'smooth' });
 });
 
 async function loadLibrary() {
-  try {
-    const tracks = await fetchTracks();
-    state = createPlayerState(tracks);
-    renderPlayer();
-  } catch {
-    renderLogin();
+  const tracks = await fetchTracks().catch(() => []);
+  const wasPlayingId = currentTrack(state)?.id;
+  state = createPlayerState(tracks);
+  if (wasPlayingId) {
+    const index = tracks.findIndex((t) => t.id === wasPlayingId);
+    if (index >= 0) state = { ...state, position: index };
   }
+  renderPlayerBar();
+  renderTrackRow();
+  renderModeControls();
+  syncAudio();
 }
 
 loadLibrary();

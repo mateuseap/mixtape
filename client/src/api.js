@@ -7,18 +7,6 @@ async function request(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-export function login(password) {
-  return request('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  });
-}
-
-export function logout() {
-  return request('/api/auth/logout', { method: 'POST' });
-}
-
 export function fetchTracks() {
   return request('/api/tracks');
 }
