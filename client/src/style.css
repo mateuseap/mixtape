@@ -173,6 +173,15 @@ button {
   width: min(520px, 80vw);
   height: 420px;
   position: relative;
+  /* The contact shadow lives entirely here, in CSS, not as a 3D-rendered
+     plane behind the device. A pure CSS radial gradient is guaranteed to
+     fade to fully transparent (i.e. exactly the page background, whatever
+     it is) with no edge to speak of, unlike a rendered texture or a mask
+     on the canvas, both of which have a physical/opacity boundary that can
+     become visible depending on camera framing. This is what actually
+     fixes the "floating block" look, not another round of tuning the old
+     approach. */
+  background: radial-gradient(ellipse 55% 32% at 50% 78%, rgba(19, 29, 26, 0.16), transparent 72%);
 }
 
 .device-stage canvas {
@@ -181,8 +190,6 @@ button {
   display: block;
   touch-action: none;
   cursor: grab;
-  mask-image: radial-gradient(ellipse 85% 78% at 50% 46%, #000 62%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 85% 78% at 50% 46%, #000 62%, transparent 100%);
 }
 
 .device-stage canvas:active { cursor: grabbing; }

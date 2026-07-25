@@ -1,44 +1,17 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import {
+  metalMaterial,
+  createRenderer,
+  addStandardLighting,
+  makeGlyphTexture,
+  drawTriangle,
+  createDragRotateController,
+  startAnimationLoop,
+} from './sceneCore.js';
 
 const ACCENT_HEX = 0x0f7a63;
-const ACCENT_BRIGHT_HEX = 0x35d0a5;
 const DEFAULT_ROTATION_Y = 0.35;
-const AUTO_ROTATE_SPEED = 0.12; // radians per second
-const DAMPING = 0.9;
-const DRAG_TO_RADIANS = 0.012;
-const CLICK_MOVE_THRESHOLD = 6; // px, above this a pointerdown+up is a drag, not a click
-
-// Ground shadow: a very large, mostly-transparent plane so its physical edge
-// never enters the visible frustum. Only a small soft gradient blob near the
-// device is actually visible; the falloff completes well before the edge.
-function buildGroundShadow() {
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.09);
-  gradient.addColorStop(0, 'rgba(19, 29, 26, 0.32)');
-  gradient.addColorStop(0.4, 'rgba(19, 29, 26, 0.14)');
-  gradient.addColorStop(0.75, 'rgba(19, 29, 26, 0.03)');
-  gradient.addColorStop(1, 'rgba(19, 29, 26, 0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const geometry = new THREE.PlaneGeometry(24, 24);
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    transparent: true,
-    depthWrite: false,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -1.16;
-  return mesh;
-}
 
 function buildScreenTexture() {
   const canvas = document.createElement('canvas');
@@ -49,7 +22,11 @@ function buildScreenTexture() {
   return { canvas, texture };
 }
 
-function drawScreen(canvas, texture, title, artist) {
+// The screen shows more than just the track: title/artist up top, a live
+// oscilloscope-style waveform from the actual audio in the middle (flat
+// when nothing is playing), and a segmented volume meter at the bottom,
+// like the level displays real portable players had.
+function drawScreen(canvas, texture, { title, artist, volume, waveform }) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
@@ -57,26 +34,58 @@ function drawScreen(canvas, texture, title, artist) {
 
   ctx.fillStyle = '#0c1a14';
   ctx.fillRect(0, 0, w, h);
-
   ctx.strokeStyle = 'rgba(143, 230, 196, 0.25)';
   ctx.lineWidth = 4;
   ctx.strokeRect(8, 8, w - 16, h - 16);
 
   ctx.fillStyle = '#8fe6c4';
-  ctx.font = '600 34px "Geist Mono", ui-monospace, monospace';
+  ctx.font = '600 30px "Geist Mono", ui-monospace, monospace';
   ctx.textBaseline = 'middle';
-  const titleText = truncate(ctx, title || 'no track selected', w - 60);
-  ctx.fillText(titleText, 30, h / 2 - 30);
+  ctx.fillText(truncate(ctx, title || 'no track selected', w - 60), 26, 46);
 
-  ctx.font = '400 24px "Geist Mono", ui-monospace, monospace';
+  ctx.font = '400 20px "Geist Mono", ui-monospace, monospace';
   ctx.fillStyle = 'rgba(143, 230, 196, 0.7)';
-  const artistText = truncate(ctx, artist || '', w - 60);
-  ctx.fillText(artistText, 30, h / 2 + 24);
+  ctx.fillText(truncate(ctx, artist || '', w - 60), 26, 78);
 
-  ctx.fillStyle = 'rgba(143, 230, 196, 0.5)';
+  // Waveform band.
+  const waveTop = 96;
+  const waveHeight = 96;
+  const midY = waveTop + waveHeight / 2;
+  ctx.strokeStyle = '#35d0a5';
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.arc(w - 40, h - 40, 8, 0, Math.PI * 2);
-  ctx.fill();
+  const samples = waveform && waveform.length ? waveform : null;
+  const barCount = 96;
+  for (let i = 0; i < barCount; i++) {
+    const x = 26 + (i / (barCount - 1)) * (w - 52);
+    let amplitude = 0;
+    if (samples) {
+      const sample = samples[Math.floor((i / barCount) * samples.length)] / 128 - 1;
+      amplitude = sample * (waveHeight / 2 - 4);
+    }
+    const y = midY + amplitude;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Volume meter.
+  const meterY = h - 34;
+  const meterSegments = 20;
+  const meterWidth = w - 52;
+  const segmentGap = 3;
+  const segmentWidth = meterWidth / meterSegments - segmentGap;
+  const filledSegments = Math.round((volume ?? 0) * meterSegments);
+  for (let i = 0; i < meterSegments; i++) {
+    const x = 26 + i * (segmentWidth + segmentGap);
+    ctx.fillStyle = i < filledSegments ? '#35d0a5' : 'rgba(143, 230, 196, 0.18)';
+    ctx.fillRect(x, meterY, segmentWidth, 12);
+  }
+  ctx.font = '400 16px "Geist Mono", ui-monospace, monospace';
+  ctx.fillStyle = 'rgba(143, 230, 196, 0.7)';
+  ctx.textAlign = 'right';
+  ctx.fillText(`VOL ${Math.round((volume ?? 0) * 100)}`, w - 26, meterY - 10);
+  ctx.textAlign = 'left';
 
   texture.needsUpdate = true;
 }
@@ -90,39 +99,26 @@ function truncate(ctx, text, maxWidth) {
   return `${result}...`;
 }
 
-// A small transparent canvas texture with a single white glyph drawn by
-// `draw(ctx, size)`, used to print real icons on the wheel and center
-// button so each clickable zone shows what it does instead of relying on
-// a generic decorative dot.
-function makeGlyphTexture(draw, color = '#ffffff') {
-  const size = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  draw(ctx, size);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+function drawPlus(ctx, s) {
+  const bar = s * 0.16;
+  ctx.fillRect(s * 0.5 - bar / 2, s * 0.18, bar, s * 0.64);
+  ctx.fillRect(s * 0.18, s * 0.5 - bar / 2, s * 0.64, bar);
 }
 
-function drawTriangle(ctx, cx, cy, size, rotationDeg) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((rotationDeg * Math.PI) / 180);
-  ctx.beginPath();
-  ctx.moveTo(-size * 0.55, -size * 0.65);
-  ctx.lineTo(size * 0.7, 0);
-  ctx.lineTo(-size * 0.55, size * 0.65);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+function drawMinus(ctx, s) {
+  const bar = s * 0.16;
+  ctx.fillRect(s * 0.18, s * 0.5 - bar / 2, s * 0.64, bar);
+}
+
+function drawPause(ctx, s) {
+  const barW = s * 0.18;
+  ctx.fillRect(s * 0.34 - barW / 2, s * 0.28, barW, s * 0.44);
+  ctx.fillRect(s * 0.66 - barW / 2, s * 0.28, barW, s * 0.44);
 }
 
 const GLYPH_TEXTURES = {
   play: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s * 0.53, s / 2, s * 0.34, 0)),
+  pause: makeGlyphTexture((ctx, s) => drawPause(ctx, s)),
   next: makeGlyphTexture((ctx, s) => {
     drawTriangle(ctx, s * 0.38, s / 2, s * 0.22, 0);
     drawTriangle(ctx, s * 0.68, s / 2, s * 0.22, 0);
@@ -131,12 +127,12 @@ const GLYPH_TEXTURES = {
     drawTriangle(ctx, s * 0.32, s / 2, s * 0.22, 180);
     drawTriangle(ctx, s * 0.62, s / 2, s * 0.22, 180);
   }),
-  // Triangles, not a +/- cross: a thin cross's vertical stroke shears into
-  // illegible noise at the wheel's top zone, which is heavily foreshortened
-  // from this camera angle. A solid triangle silhouette survives that
-  // distortion the same way the prev/next arrows already do.
-  volumeUp: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s / 2, s * 0.53, s * 0.34, -90), '#2b3230'),
-  volumeDown: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s / 2, s * 0.47, s * 0.34, 90), '#2b3230'),
+  // Filled +/- (not thin crossed strokes): a thin cross's vertical stroke
+  // used to shear into illegible noise at the wheel's most foreshortened
+  // zone before the z-offset fix below; filled shapes stayed legible
+  // through that same investigation, so keep them filled going forward.
+  volumeUp: makeGlyphTexture((ctx, s) => drawPlus(ctx, s), '#2b3230'),
+  volumeDown: makeGlyphTexture((ctx, s) => drawMinus(ctx, s), '#2b3230'),
 };
 
 // Body is a portrait-oriented "candy bar" device: a screen sits in the top
@@ -160,14 +156,6 @@ const WHEEL_RADIUS = 0.5;
 const WHEEL_MARGIN_BOTTOM = 0.14;
 const WHEEL_CENTER_Y = -(BODY_HEIGHT / 2 - WHEEL_MARGIN_BOTTOM - WHEEL_RADIUS);
 const CENTER_BUTTON_RADIUS = WHEEL_RADIUS * 0.38;
-
-// Cheaper than MeshPhysicalMaterial + clearcoat, which requires an extra
-// BRDF evaluation per pixel. Tuned metalness/roughness on plain
-// MeshStandardMaterial still reads as brushed metal against the room
-// environment map, at meaningfully lower per-frame GPU cost.
-function metalMaterial(color, metalness, roughness) {
-  return new THREE.MeshStandardMaterial({ color, metalness, roughness });
-}
 
 function buildDevice(screenTexture) {
   const group = new THREE.Group();
@@ -204,15 +192,16 @@ function buildDevice(screenTexture) {
   ring.userData.interactive = 'wheel';
   wheelGroup.add(ring);
 
+  const centerMaterial = new THREE.MeshStandardMaterial({
+    color: ACCENT_HEX,
+    metalness: 0.35,
+    roughness: 0.3,
+    emissive: ACCENT_HEX,
+    emissiveIntensity: 0.15,
+  });
   const center = new THREE.Mesh(
     new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS, CENTER_BUTTON_RADIUS, 0.04, 40),
-    new THREE.MeshStandardMaterial({
-      color: ACCENT_HEX,
-      metalness: 0.35,
-      roughness: 0.3,
-      emissive: ACCENT_HEX,
-      emissiveIntensity: 0.15,
-    }),
+    centerMaterial,
   );
   center.rotation.x = Math.PI / 2;
   center.position.z = 0.03;
@@ -220,33 +209,35 @@ function buildDevice(screenTexture) {
   wheelGroup.add(center);
 
   // Printed icons so each clickable zone shows what it does, like a real
-  // click wheel: a play glyph on the center button, and volume/skip
-  // glyphs at the ring's four cardinal zones (these are children of
-  // wheelGroup directly, not ring, so "up" is simply +Y with no axis
-  // flip needed; a default PlaneGeometry already faces +Z toward camera).
+  // click wheel: a play/pause glyph on the center button (swapped
+  // dynamically, see setPlaying), and volume/skip glyphs at the ring's
+  // four cardinal zones. These are children of wheelGroup directly, not
+  // ring, so "up" is simply +Y with no axis flip needed; a default
+  // PlaneGeometry already faces +Z toward the camera.
   const GLYPH_SIZE = 0.23;
   const GLYPH_RADIUS = WHEEL_RADIUS * 0.72;
+  // Well proud of the ring's own front face (~0.025): too close and the
+  // two surfaces z-fight, which reads as illegible noise at grazing
+  // viewing angles (worst at the top of the wheel, seen edge-on from this
+  // camera). This is what actually broke the +/- glyphs before, not their
+  // shape.
+  const GLYPH_Z = 0.06;
 
-  function addGlyph(texture, x, y, z, rotationDeg = 0) {
+  function addGlyph(texture, x, y) {
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(GLYPH_SIZE, GLYPH_SIZE),
       new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
     );
-    mesh.position.set(x, y, z);
-    if (rotationDeg) mesh.rotation.z = (rotationDeg * Math.PI) / 180;
+    mesh.position.set(x, y, GLYPH_Z);
     wheelGroup.add(mesh);
+    return mesh;
   }
 
-  // z is well proud of the ring's own front face (~0.025) so the glyph
-  // plane is never near-coplanar with it; too close and the two surfaces
-  // z-fight, which reads as illegible noise at grazing viewing angles
-  // (worst at the top of the wheel, which this camera sees edge-on).
-  const GLYPH_Z = 0.06;
-  addGlyph(GLYPH_TEXTURES.play, 0, 0, GLYPH_Z);
-  addGlyph(GLYPH_TEXTURES.volumeUp, 0, GLYPH_RADIUS, GLYPH_Z);
-  addGlyph(GLYPH_TEXTURES.volumeDown, 0, -GLYPH_RADIUS, GLYPH_Z);
-  addGlyph(GLYPH_TEXTURES.previous, -GLYPH_RADIUS, 0, GLYPH_Z);
-  addGlyph(GLYPH_TEXTURES.next, GLYPH_RADIUS, 0, GLYPH_Z);
+  const playPauseGlyph = addGlyph(GLYPH_TEXTURES.play, 0, 0);
+  addGlyph(GLYPH_TEXTURES.volumeUp, 0, GLYPH_RADIUS);
+  addGlyph(GLYPH_TEXTURES.volumeDown, 0, -GLYPH_RADIUS);
+  addGlyph(GLYPH_TEXTURES.previous, -GLYPH_RADIUS, 0);
+  addGlyph(GLYPH_TEXTURES.next, GLYPH_RADIUS, 0);
 
   const port = new THREE.Mesh(
     new RoundedBoxGeometry(0.16, 0.035, 0.03, 2, 0.012),
@@ -256,7 +247,7 @@ function buildDevice(screenTexture) {
   group.add(port);
 
   group.rotation.y = DEFAULT_ROTATION_Y;
-  return { group, wheelGroup, ring, center };
+  return { group, wheelGroup, ring, center, playPauseGlyph };
 }
 
 // Classifies a click on the ring into one of four zones by the angle of the
@@ -277,15 +268,10 @@ function classifyRingZone(localPoint) {
   return 'volume-down';
 }
 
-export function createDeviceScene(canvas, callbacks = {}) {
+export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
   const { onPlayPause, onPrev, onNext, onVolumeUp, onVolumeDown } = callbacks;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-
+  const renderer = createRenderer(canvas);
   const scene = new THREE.Scene();
   scene.background = null;
 
@@ -293,62 +279,46 @@ export function createDeviceScene(canvas, callbacks = {}) {
   camera.position.set(0, 0.1, 5.1);
   camera.lookAt(0, 0, 0);
 
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environment = envTexture;
-
-  const keyLight = new THREE.DirectionalLight(0xf5f8f7, 2.6);
-  keyLight.position.set(2.6, 3.2, 2.6);
-  scene.add(keyLight);
-
-  const fillLight = new THREE.DirectionalLight(0xbfe9db, 0.9);
-  fillLight.position.set(-2.8, 1.6, -1.6);
-  scene.add(fillLight);
-
-  const rimLight = new THREE.PointLight(ACCENT_BRIGHT_HEX, 1.6, 8);
-  rimLight.position.set(0, 1.4, -2.2);
-  scene.add(rimLight);
-
-  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-  scene.add(ambient);
-
-  const groundShadow = buildGroundShadow();
-  scene.add(groundShadow);
+  const pmremGenerator = addStandardLighting(scene, renderer);
 
   const screenTexture = buildScreenTexture();
-  const { group: device, ring, center } = buildDevice(screenTexture.texture);
+  const { group: device, ring, center, playPauseGlyph } = buildDevice(screenTexture.texture);
   scene.add(device);
-  drawScreen(screenTexture.canvas, screenTexture.texture, 'no track selected', '');
 
-  let targetRotationY = device.rotation.y;
-  let rotationVelocity = 0;
-  let isDragging = false;
-  let lastPointerX = 0;
-  let idleTime = 0;
-  let pointerDownX = 0;
-  let pointerDownY = 0;
-  let totalMove = 0;
+  let lastTitle = '';
+  let lastArtist = '';
+  let lastVolume = audioElement ? audioElement.volume : 1;
+  drawScreen(screenTexture.canvas, screenTexture.texture, { title: '', artist: '', volume: lastVolume });
 
-  const raycaster = new THREE.Raycaster();
-  const pointerNDC = new THREE.Vector2();
+  // Web Audio analyser for the live waveform. Created lazily on first user
+  // gesture (autoplay policies block AudioContext until then) and wraps the
+  // shared <audio> element exactly once, since a MediaElementSourceNode can
+  // only ever be created a single time per element.
+  let analyser = null;
+  let waveformBuffer = null;
+  function ensureAnalyser() {
+    if (analyser || !audioElement) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      const source = audioContext.createMediaElementSource(audioElement);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      waveformBuffer = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+    } catch {
+      // Web Audio unavailable or already wired; the screen just shows a
+      // flat line, which is a harmless visual degradation.
+    }
+  }
+
   const interactiveMeshes = [ring, center];
-
-  function setPointerNDC(event) {
-    const rect = canvas.getBoundingClientRect();
-    pointerNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointerNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  }
-
-  function hitTest(event) {
-    setPointerNDC(event);
-    raycaster.setFromCamera(pointerNDC, camera);
-    const hits = raycaster.intersectObjects(interactiveMeshes, false);
-    return hits.length > 0 ? hits[0] : null;
-  }
 
   function triggerAction(hit) {
     const kind = hit.object.userData.interactive;
     if (kind === 'center') {
+      ensureAnalyser();
       onPlayPause?.();
       return;
     }
@@ -362,6 +332,15 @@ export function createDeviceScene(canvas, callbacks = {}) {
     }
   }
 
+  const controller = createDragRotateController({
+    canvas,
+    camera,
+    deviceGroup: device,
+    interactiveMeshes,
+    defaultRotationY: DEFAULT_ROTATION_Y,
+    onClick: triggerAction,
+  });
+
   function resize() {
     const { clientWidth, clientHeight } = canvas;
     if (clientWidth === 0 || clientHeight === 0) return;
@@ -369,110 +348,47 @@ export function createDeviceScene(canvas, callbacks = {}) {
     camera.updateProjectionMatrix();
     renderer.setSize(clientWidth, clientHeight, false);
   }
-
-  function onPointerDown(event) {
-    isDragging = true;
-    lastPointerX = event.clientX;
-    pointerDownX = event.clientX;
-    pointerDownY = event.clientY;
-    totalMove = 0;
-    rotationVelocity = 0;
-    canvas.setPointerCapture(event.pointerId);
-  }
-
-  function onPointerMove(event) {
-    if (!isDragging) {
-      const hit = hitTest(event);
-      canvas.style.cursor = hit ? 'pointer' : 'grab';
-      return;
-    }
-    const deltaX = event.clientX - lastPointerX;
-    lastPointerX = event.clientX;
-    totalMove = Math.hypot(event.clientX - pointerDownX, event.clientY - pointerDownY);
-    const delta = deltaX * DRAG_TO_RADIANS;
-    device.rotation.y += delta;
-    targetRotationY = device.rotation.y;
-    rotationVelocity = delta;
-    idleTime = 0;
-  }
-
-  function onPointerUp(event) {
-    isDragging = false;
-    try {
-      canvas.releasePointerCapture(event.pointerId);
-    } catch {
-      // pointer capture may already be released
-    }
-    if (totalMove < CLICK_MOVE_THRESHOLD) {
-      const hit = hitTest(event);
-      if (hit) triggerAction(hit);
-    }
-  }
-
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointerleave', onPointerUp);
-
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(canvas);
   resize();
 
-  const clock = new THREE.Clock();
-  let animationFrame = null;
-  // Slow idle auto-rotation doesn't need a full 60fps to look smooth; only
-  // throttle during that phase, never while the user is actively dragging
-  // or during momentum, so interaction always stays fully responsive.
-  const IDLE_FRAME_INTERVAL = 1 / 30;
-  let timeSinceRender = 0;
+  let isPlaying = false;
+  let screenRedrawAccum = 0;
+  const SCREEN_REDRAW_INTERVAL = 1 / 20; // the waveform doesn't need 60fps to read as live
 
-  function animate() {
-    animationFrame = requestAnimationFrame(animate);
-    const delta = Math.min(clock.getDelta(), 0.1);
-    let isIdleRotating = false;
-
-    if (isDragging) {
-      idleTime = 0;
-    } else if (Math.abs(rotationVelocity) > 0.0001) {
-      device.rotation.y += rotationVelocity;
-      rotationVelocity *= DAMPING;
-      idleTime = 0;
-    } else {
-      idleTime += delta;
-      if (idleTime > 0.6) {
-        device.rotation.y += AUTO_ROTATE_SPEED * delta;
-        isIdleRotating = true;
-      }
+  const stop = startAnimationLoop(renderer, scene, camera, controller, (delta) => {
+    screenRedrawAccum += delta;
+    if (screenRedrawAccum < SCREEN_REDRAW_INTERVAL) return;
+    screenRedrawAccum = 0;
+    if (isPlaying && analyser && waveformBuffer) {
+      analyser.getByteTimeDomainData(waveformBuffer);
     }
-
-    if (isIdleRotating) {
-      timeSinceRender += delta;
-      if (timeSinceRender < IDLE_FRAME_INTERVAL) return;
-      timeSinceRender = 0;
-    } else {
-      timeSinceRender = 0;
-    }
-
-    renderer.render(scene, camera);
-  }
-  animate();
+    drawScreen(screenTexture.canvas, screenTexture.texture, {
+      title: lastTitle,
+      artist: lastArtist,
+      volume: lastVolume,
+      waveform: isPlaying ? waveformBuffer : null,
+    });
+  });
 
   return {
     updateScreen(title, artist) {
-      drawScreen(screenTexture.canvas, screenTexture.texture, title, artist);
+      lastTitle = title;
+      lastArtist = artist;
     },
-    resetRotation() {
-      rotationVelocity = 0;
-      device.rotation.y = DEFAULT_ROTATION_Y;
-      idleTime = 0;
+    setVolume(volume) {
+      lastVolume = volume;
     },
+    setPlaying(playing) {
+      isPlaying = playing;
+      playPauseGlyph.material.map = playing ? GLYPH_TEXTURES.pause : GLYPH_TEXTURES.play;
+      playPauseGlyph.material.needsUpdate = true;
+    },
+    resetRotation: controller.resetRotation,
     dispose() {
-      cancelAnimationFrame(animationFrame);
+      stop();
       resizeObserver.disconnect();
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerUp);
+      controller.dispose();
       pmremGenerator.dispose();
       renderer.dispose();
     },

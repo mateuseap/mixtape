@@ -19,18 +19,23 @@ const canvas = document.getElementById('device-canvas');
 
 const VOLUME_STEP = 0.1;
 
-const scene = createDeviceScene(canvas, {
-  onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
-  onPrev: () => setState(prev(state)),
-  onNext: () => setState(next(state)),
-  onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
-  onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
-});
+const scene = createDeviceScene(
+  canvas,
+  {
+    onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
+    onPrev: () => setState(prev(state)),
+    onNext: () => setState(next(state)),
+    onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
+    onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
+  },
+  audio,
+);
 
 function setVolume(value) {
   audio.volume = Math.min(1, Math.max(0, value));
   const slider = document.getElementById('pb-volume');
   if (slider) slider.value = audio.volume;
+  scene.setVolume(audio.volume);
 }
 
 function hashHue(id) {
@@ -175,6 +180,7 @@ function syncAudio() {
   if (state.isPlaying) audio.play().catch(() => {});
   else audio.pause();
   scene.updateScreen(track ? track.title : '', track ? track.artist ?? '' : '');
+  scene.setPlaying(state.isPlaying);
 }
 
 function setState(newState) {
