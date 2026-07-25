@@ -2,6 +2,7 @@ import './style.css';
 import { fetchTracks, uploadTrack, deleteTrack, streamUrl } from './api.js';
 import { createPlayerState, currentTrack, play, pause, next, prev, cycleRepeat, toggleShuffle } from './player.js';
 import { createDeviceScene } from './scene.js';
+import { createCdPlayerScene } from './cdScene.js';
 
 const audio = new Audio();
 let state = createPlayerState([]);
@@ -16,21 +17,80 @@ const fileInput = document.getElementById('file-input');
 const scrollLeftBtn = document.getElementById('scroll-left');
 const scrollRightBtn = document.getElementById('scroll-right');
 const canvas = document.getElementById('device-canvas');
+const dragHint = document.getElementById('drag-hint');
+const deviceMp3Tab = document.getElementById('device-mp3');
+const deviceCdTab = document.getElementById('device-cd');
 
 const VOLUME_STEP = 0.1;
 
-const scene = createDeviceScene(canvas, {
-  onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
-  onPrev: () => setState(prev(state)),
-  onNext: () => setState(next(state)),
-  onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
-  onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
-});
+const DRAG_HINTS = {
+  mp3: '<span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE &middot; CLICK CENTER TO PLAY <span aria-hidden="true">&rarr;</span>',
+  cd: '<span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE &middot; CLICK THE LID TO OPEN <span aria-hidden="true">&rarr;</span>',
+};
 
 function setVolume(value) {
   audio.volume = Math.min(1, Math.max(0, value));
   const slider = document.getElementById('pb-volume');
   if (slider) slider.value = audio.volume;
+  if (activeDevice === 'mp3') scene.setVolume(audio.volume);
+}
+
+function stopPlayback() {
+  setState(pause(state));
+  audio.currentTime = 0;
+}
+
+let activeDevice = 'mp3';
+let scene = mountMp3Scene();
+
+function mountMp3Scene() {
+  return createDeviceScene(
+    canvas,
+    {
+      onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
+      onPrev: () => setState(prev(state)),
+      onNext: () => setState(next(state)),
+      onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
+      onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
+    },
+    audio,
+  );
+}
+
+function mountCdScene() {
+  return createCdPlayerScene(canvas, {
+    onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
+    onStop: () => stopPlayback(),
+    onPrev: () => setState(prev(state)),
+    onNext: () => setState(next(state)),
+    onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
+    onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
+  });
+}
+
+function switchDevice(kind) {
+  if (kind === activeDevice) return;
+  scene.dispose();
+  activeDevice = kind;
+  scene = kind === 'mp3' ? mountMp3Scene() : mountCdScene();
+  deviceMp3Tab.classList.toggle('active', kind === 'mp3');
+  deviceMp3Tab.setAttribute('aria-selected', String(kind === 'mp3'));
+  deviceCdTab.classList.toggle('active', kind === 'cd');
+  deviceCdTab.setAttribute('aria-selected', String(kind === 'cd'));
+  dragHint.innerHTML = DRAG_HINTS[kind];
+  syncDeviceDisplay();
+}
+
+function syncDeviceDisplay() {
+  const track = currentTrack(state);
+  if (activeDevice === 'mp3') {
+    scene.updateScreen(track ? track.title : '', track ? track.artist ?? '' : '');
+    scene.setVolume(audio.volume);
+  } else {
+    scene.setTrackInfo(track ? track.title : '', state.position >= 0 ? state.position + 1 : 1);
+    scene.setDiscLoaded(!!track);
+  }
+  scene.setPlaying(state.isPlaying);
 }
 
 function hashHue(id) {
@@ -174,7 +234,7 @@ function syncAudio() {
   }
   if (state.isPlaying) audio.play().catch(() => {});
   else audio.pause();
-  scene.updateScreen(track ? track.title : '', track ? track.artist ?? '' : '');
+  syncDeviceDisplay();
 }
 
 function setState(newState) {
@@ -216,6 +276,8 @@ scrollLeftBtn.addEventListener('click', () => {
 scrollRightBtn.addEventListener('click', () => {
   trackRow.scrollBy({ left: 320, behavior: 'smooth' });
 });
+deviceMp3Tab.addEventListener('click', () => switchDevice('mp3'));
+deviceCdTab.addEventListener('click', () => switchDevice('cd'));
 
 async function loadLibrary() {
   const tracks = await fetchTracks().catch(() => []);

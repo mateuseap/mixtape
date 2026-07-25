@@ -2,8 +2,8 @@
 
 # 🎵 Mixtape
 
-**Your MP3s, your server, a 3D player.**
-Open, no-login library · Upload and stream your own files · No subscriptions.
+**Your MP3s, your server, real sound equipment.**
+Open, no-login library · Interactive 3D devices · No subscriptions.
 
 [![CI](https://github.com/mateuseap/mixtape/actions/workflows/ci.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
 [![Publish Images](https://github.com/mateuseap/mixtape/actions/workflows/publish-images.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
@@ -14,7 +14,7 @@ Open, no-login library · Upload and stream your own files · No subscriptions.
 
 <br />
 
-<img src="docs/assets/preview.png" width="720" alt="Mixtape: an interactive 3D MP3 player" />
+<img src="docs/assets/preview.png" width="720" alt="Mixtape: interactive 3D sound equipment, an MP3 click wheel and a CD player" />
 
 <br />
 
@@ -24,17 +24,21 @@ Open, no-login library · Upload and stream your own files · No subscriptions.
 
 ## Why Mixtape?
 
-Streaming services do not keep your files, and existing self-hosted media servers are built for entire collections with transcoding, users, and settings you do not need for a personal MP3 folder. Mixtape is a small, single-purpose alternative: upload MP3s, get a real-time 3D player, keep everything on your own server.
+Streaming services do not keep your files, and existing self-hosted media servers are built for entire collections with transcoding, users, and settings you do not need for a personal MP3 folder. Mixtape is a small, single-purpose alternative: upload MP3s, then play them back on real interactive 3D sound equipment, all running on your own server.
+
+Mixtape is a growing rack of equipment, not a single fixed player. Switch between devices with the tabs above the stage; every device shares the same open library and playback state.
 
 - **Your files.** MP3s live on your server, not a third party's.
-- **Interactive 3D UI.** A WebGL device you can drag to rotate, with a live LCD readout of the current track. The click wheel is genuinely clickable: center to play/pause, and up/down/left/right for volume and skip, like a real click wheel, instead of a generic table.
+- **Real equipment, not a generic player.** An MP3 click-wheel device and a CD boombox so far, each modeled and interactive on its own terms, with more equipment planned.
 - **Open library.** No accounts, no password gate. Anyone with access to the app can add or play tracks.
 
 ## Features
 
 |  |  |
 |--|--|
-| 🎛 **Clickable 3D device** | A draggable, auto-rotating WebGL click wheel with printed icons at every zone: play/pause in the center, volume and skip at top/bottom/left/right, exactly like a real click wheel |
+| 🎛 **Clickable 3D click wheel** | A draggable, auto-rotating WebGL device with printed icons at every zone: play/pause in the center, volume and skip at top/bottom/left/right, exactly like a real click wheel |
+| 💿 **CD player** | A boombox with a hinged lid you open to reveal the loaded disc, transport buttons (play/pause, stop, skip), and its own volume controls |
+| 📈 **Live LCD readouts** | The click wheel's screen shows a real oscilloscope-style waveform from the actual audio and a segmented volume meter, not just a track name |
 | 📤 **Drop-in uploads** | Pick an MP3 and it appears in the library immediately, no form fields required |
 | 🏷 **Automatic tagging** | ID3 title/artist/album/duration parsed on upload, falls back to the filename |
 | ⏩ **Real seeking** | HTTP Range-request streaming, so scrubbing does not need the whole file downloaded |
