@@ -2,27 +2,33 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-const ACCENT_HEX = 0x35d0a5;
+const ACCENT_HEX = 0x0f7a63;
+const ACCENT_BRIGHT_HEX = 0x35d0a5;
 const DEFAULT_ROTATION_Y = 0.35;
 const AUTO_ROTATE_SPEED = 0.12; // radians per second
 const DAMPING = 0.9;
 const DRAG_TO_RADIANS = 0.012;
+const CLICK_MOVE_THRESHOLD = 6; // px, above this a pointerdown+up is a drag, not a click
 
+// Ground shadow: a very large, mostly-transparent plane so its physical edge
+// never enters the visible frustum. Only a small soft gradient blob near the
+// device is actually visible; the falloff completes well before the edge.
 function buildGroundShadow() {
   const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0, 'rgba(15, 20, 18, 0.45)');
-  gradient.addColorStop(0.6, 'rgba(15, 20, 18, 0.22)');
-  gradient.addColorStop(1, 'rgba(15, 20, 18, 0)');
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.09);
+  gradient.addColorStop(0, 'rgba(19, 29, 26, 0.32)');
+  gradient.addColorStop(0.4, 'rgba(19, 29, 26, 0.14)');
+  gradient.addColorStop(0.75, 'rgba(19, 29, 26, 0.03)');
+  gradient.addColorStop(1, 'rgba(19, 29, 26, 0)');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
 
   const texture = new THREE.CanvasTexture(canvas);
-  const geometry = new THREE.PlaneGeometry(6, 6);
+  const geometry = new THREE.PlaneGeometry(24, 24);
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
@@ -104,6 +110,7 @@ const SCREEN_CENTER_Y = BODY_HEIGHT / 2 - SCREEN_MARGIN_TOP - SCREEN_HEIGHT / 2;
 const WHEEL_RADIUS = 0.5;
 const WHEEL_MARGIN_BOTTOM = 0.14;
 const WHEEL_CENTER_Y = -(BODY_HEIGHT / 2 - WHEEL_MARGIN_BOTTOM - WHEEL_RADIUS);
+const CENTER_BUTTON_RADIUS = WHEEL_RADIUS * 0.38;
 
 function buildDevice(screenTexture) {
   const group = new THREE.Group();
@@ -153,6 +160,7 @@ function buildDevice(screenTexture) {
   const ring = new THREE.Mesh(ringGeometry, ringMaterial);
   ring.rotation.x = Math.PI / 2;
   ring.position.z = 0.01;
+  ring.userData.interactive = 'wheel';
   wheelGroup.add(ring);
 
   const centerMaterial = new THREE.MeshPhysicalMaterial({
@@ -162,10 +170,11 @@ function buildDevice(screenTexture) {
     emissive: ACCENT_HEX,
     emissiveIntensity: 0.15,
   });
-  const centerGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS * 0.38, WHEEL_RADIUS * 0.38, 0.04, 40);
+  const centerGeometry = new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS, CENTER_BUTTON_RADIUS, 0.04, 40);
   const center = new THREE.Mesh(centerGeometry, centerMaterial);
   center.rotation.x = Math.PI / 2;
   center.position.z = 0.03;
+  center.userData.interactive = 'center';
   wheelGroup.add(center);
 
   const notchMaterial = new THREE.MeshPhysicalMaterial({
@@ -194,10 +203,30 @@ function buildDevice(screenTexture) {
   group.add(port);
 
   group.rotation.y = DEFAULT_ROTATION_Y;
-  return group;
+  return { group, wheelGroup, ring, center };
 }
 
-export function createDeviceScene(canvas) {
+// Classifies a click on the ring into one of four zones by the angle of the
+// hit point around the wheel's local center, matching a real click-wheel:
+// top = volume up, bottom = volume down, left = previous, right = next.
+//
+// `localPoint` comes from `ring.worldToLocal()`, which undoes the ring's own
+// `rotation.x = PI/2` along with everything else, so it lands back in the
+// cylinder's raw geometry space, where the flat disc face lies in the local
+// XZ plane (Y is the cylinder's height axis), not XY. Local +Z there maps to
+// parent (screen) -Y, so "up" on screen is -localPoint.z, not localPoint.y.
+function classifyRingZone(localPoint) {
+  const angle = Math.atan2(-localPoint.z, localPoint.x);
+  const deg = (angle * 180) / Math.PI;
+  if (deg > -45 && deg <= 45) return 'next';
+  if (deg > 45 && deg <= 135) return 'volume-up';
+  if (deg > 135 || deg <= -135) return 'previous';
+  return 'volume-down';
+}
+
+export function createDeviceScene(canvas, callbacks = {}) {
+  const { onPlayPause, onPrev, onNext, onVolumeUp, onVolumeDown } = callbacks;
+
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -215,7 +244,7 @@ export function createDeviceScene(canvas) {
   const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTexture;
 
-  const keyLight = new THREE.DirectionalLight(0xfff4e0, 2.6);
+  const keyLight = new THREE.DirectionalLight(0xf5f8f7, 2.6);
   keyLight.position.set(2.6, 3.2, 2.6);
   scene.add(keyLight);
 
@@ -223,7 +252,7 @@ export function createDeviceScene(canvas) {
   fillLight.position.set(-2.8, 1.6, -1.6);
   scene.add(fillLight);
 
-  const rimLight = new THREE.PointLight(0x35d0a5, 1.6, 8);
+  const rimLight = new THREE.PointLight(ACCENT_BRIGHT_HEX, 1.6, 8);
   rimLight.position.set(0, 1.4, -2.2);
   scene.add(rimLight);
 
@@ -234,7 +263,7 @@ export function createDeviceScene(canvas) {
   scene.add(groundShadow);
 
   const screenTexture = buildScreenTexture();
-  const device = buildDevice(screenTexture.texture);
+  const { group: device, ring, center } = buildDevice(screenTexture.texture);
   scene.add(device);
   drawScreen(screenTexture.canvas, screenTexture.texture, 'no track selected', '');
 
@@ -243,6 +272,42 @@ export function createDeviceScene(canvas) {
   let isDragging = false;
   let lastPointerX = 0;
   let idleTime = 0;
+  let pointerDownX = 0;
+  let pointerDownY = 0;
+  let totalMove = 0;
+
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  const interactiveMeshes = [ring, center];
+
+  function setPointerNDC(event) {
+    const rect = canvas.getBoundingClientRect();
+    pointerNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
+  function hitTest(event) {
+    setPointerNDC(event);
+    raycaster.setFromCamera(pointerNDC, camera);
+    const hits = raycaster.intersectObjects(interactiveMeshes, false);
+    return hits.length > 0 ? hits[0] : null;
+  }
+
+  function triggerAction(hit) {
+    const kind = hit.object.userData.interactive;
+    if (kind === 'center') {
+      onPlayPause?.();
+      return;
+    }
+    if (kind === 'wheel') {
+      const local = ring.worldToLocal(hit.point.clone());
+      const zone = classifyRingZone(local);
+      if (zone === 'next') onNext?.();
+      else if (zone === 'previous') onPrev?.();
+      else if (zone === 'volume-up') onVolumeUp?.();
+      else if (zone === 'volume-down') onVolumeDown?.();
+    }
+  }
 
   function resize() {
     const { clientWidth, clientHeight } = canvas;
@@ -255,14 +320,22 @@ export function createDeviceScene(canvas) {
   function onPointerDown(event) {
     isDragging = true;
     lastPointerX = event.clientX;
+    pointerDownX = event.clientX;
+    pointerDownY = event.clientY;
+    totalMove = 0;
     rotationVelocity = 0;
     canvas.setPointerCapture(event.pointerId);
   }
 
   function onPointerMove(event) {
-    if (!isDragging) return;
+    if (!isDragging) {
+      const hit = hitTest(event);
+      canvas.style.cursor = hit ? 'pointer' : 'grab';
+      return;
+    }
     const deltaX = event.clientX - lastPointerX;
     lastPointerX = event.clientX;
+    totalMove = Math.hypot(event.clientX - pointerDownX, event.clientY - pointerDownY);
     const delta = deltaX * DRAG_TO_RADIANS;
     device.rotation.y += delta;
     targetRotationY = device.rotation.y;
@@ -276,6 +349,10 @@ export function createDeviceScene(canvas) {
       canvas.releasePointerCapture(event.pointerId);
     } catch {
       // pointer capture may already be released
+    }
+    if (totalMove < CLICK_MOVE_THRESHOLD) {
+      const hit = hitTest(event);
+      if (hit) triggerAction(hit);
     }
   }
 
