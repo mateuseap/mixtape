@@ -6,18 +6,25 @@ import {
   addStandardLighting,
   makeGlyphTexture,
   drawTriangle,
+  drawPlayPauseGlyph,
   createDragRotateController,
   startAnimationLoop,
 } from './sceneCore.js';
 
 const DEFAULT_ROTATION_Y = 0.3;
 
-const CHASSIS_WIDTH = 2.7;
+const CHASSIS_WIDTH = 2.9;
 const CHASSIS_HEIGHT = 1.15;
 const CHASSIS_DEPTH = 0.8;
 const FRONT_Z = CHASSIS_DEPTH / 2;
 
-const SPEAKER_RADIUS = 0.44;
+// Speaker radius was 0.44 at SPEAKER_X 0.98, so the outer edge (1.42) sat
+// past the old chassis half-width (1.35) - the speaker was literally
+// poking through the case. Shrinking the radius slightly and widening the
+// chassis a touch fixes that, and also opens enough clearance in the
+// center console (inner edge now 0.58) for the transport row below to sit
+// fully clear of both speakers.
+const SPEAKER_RADIUS = 0.4;
 const SPEAKER_X = 0.98;
 
 const BAY_RADIUS = 0.24;
@@ -30,6 +37,11 @@ const LCD_HEIGHT = 0.2;
 
 const BUTTON_Y = -0.35;
 const BUTTON_SIZE = 0.15;
+// Six buttons on a fixed pitch, centered on x=0 - the whole row spans
+// ±0.5, comfortably inside the 0.58 gap left by the speakers.
+const BUTTON_PITCH = 0.17;
+
+const DISC_SPIN_SPEED = 2.2; // radians/sec while playing, freezes otherwise
 
 const LID_OPEN_DEG = -118;
 
@@ -63,6 +75,72 @@ function buildLcdTexture() {
   return { canvas, texture };
 }
 
+function hashHue(id) {
+  const str = String(id ?? 'x');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % 360;
+}
+
+function buildDiscCoverTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return { canvas, texture };
+}
+
+// Cover art printed on the disc face, in the same hash-colored gradient
+// style as the library's track cards (see hashHue/artStyle in main.js), so
+// the loaded disc reads as "this track" rather than a generic blank disc.
+// The off-center label is deliberate: a perfectly radially-symmetric
+// texture would hide the fact the disc is spinning at all.
+function drawDiscCover(canvas, texture, { title, trackId }) {
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const center = size / 2;
+  ctx.clearRect(0, 0, size, size);
+
+  const hue = hashHue(trackId ?? title);
+  const gradient = ctx.createRadialGradient(center, center, size * 0.08, center, center, size * 0.5);
+  gradient.addColorStop(0, `hsl(${hue}, 60%, 55%)`);
+  gradient.addColorStop(1, `hsl(${(hue + 40) % 360}, 55%, 30%)`);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(center, center, size * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 1;
+  for (let r = size * 0.16; r < size * 0.48; r += size * 0.045) {
+    ctx.beginPath();
+    ctx.arc(center, center, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.translate(center, center);
+  ctx.rotate(-0.35);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.font = '700 20px "Geist Mono", ui-monospace, monospace';
+  const label = (title || 'TRACK').slice(0, 14).toUpperCase();
+  ctx.fillText(label, 0, -size * 0.22);
+  ctx.restore();
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(center, center, size * 0.14, 0, Math.PI * 2);
+  ctx.stroke();
+
+  texture.needsUpdate = true;
+}
+
 function drawLcd(canvas, texture, { title, trackNumber, isPlaying, hasDisc }) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
@@ -90,12 +168,7 @@ function drawLcd(canvas, texture, { title, trackNumber, isPlaying, hasDisc }) {
 }
 
 const GLYPH_TEXTURES = {
-  play: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s * 0.53, s / 2, s * 0.32, 0), '#1d2422'),
-  pause: makeGlyphTexture((ctx, s) => {
-    const barW = s * 0.16;
-    ctx.fillRect(s * 0.34 - barW / 2, s * 0.28, barW, s * 0.44);
-    ctx.fillRect(s * 0.66 - barW / 2, s * 0.28, barW, s * 0.44);
-  }, '#1d2422'),
+  playPause: makeGlyphTexture((ctx, s) => drawPlayPauseGlyph(ctx, s), '#1d2422'),
   stop: makeGlyphTexture((ctx, s) => {
     const side = s * 0.4;
     ctx.fillRect(s / 2 - side / 2, s / 2 - side / 2, side, side);
@@ -183,18 +256,24 @@ function buildDevice(lcdTexture) {
   spindle.position.set(0, BAY_Y, BAY_Z + 0.02);
   group.add(spindle);
 
+  // The disc lives under its own pivot, tilted flat to face the camera.
+  // Spinning happens by rotating `disc` itself around its local Y (the
+  // cylinder's own axis, unaffected by the pivot's tilt) so it behaves
+  // like a record on a turntable rather than tumbling in world space.
+  const discPivot = new THREE.Group();
+  discPivot.position.set(0, BAY_Y, BAY_Z + 0.015);
+  discPivot.rotation.x = Math.PI / 2;
+  discPivot.visible = false;
+  group.add(discPivot);
+
+  const discCover = buildDiscCoverTexture();
   const discMaterial = new THREE.MeshStandardMaterial({
-    color: 0xdfe6e4,
-    metalness: 0.9,
-    roughness: 0.15,
-    emissive: 0x35d0a5,
-    emissiveIntensity: 0.05,
+    map: discCover.texture,
+    metalness: 0.25,
+    roughness: 0.35,
   });
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(BAY_RADIUS - 0.03, BAY_RADIUS - 0.03, 0.015, 48), discMaterial);
-  disc.rotation.x = Math.PI / 2;
-  disc.position.set(0, BAY_Y, BAY_Z + 0.015);
-  disc.visible = false;
-  group.add(disc);
+  discPivot.add(disc);
 
   // Lid: hinged at the bay's top edge, swings up and back to open. Real
   // top-loaders hinge at the back and lift up; modeled here as a pivot
@@ -226,19 +305,19 @@ function buildDevice(lcdTexture) {
   group.add(lcd);
 
   const buttons = {
-    previous: addButton(group, GLYPH_TEXTURES.previous, -0.42, BUTTON_Y, 'previous'),
-    playPause: addButton(group, GLYPH_TEXTURES.play, -0.14, BUTTON_Y, 'play-pause'),
-    stop: addButton(group, GLYPH_TEXTURES.stop, 0.14, BUTTON_Y, 'stop'),
-    next: addButton(group, GLYPH_TEXTURES.next, 0.42, BUTTON_Y, 'next'),
-    volumeDown: addButton(group, GLYPH_TEXTURES.volumeDown, 0.85, BUTTON_Y, 'volume-down'),
-    volumeUp: addButton(group, GLYPH_TEXTURES.volumeUp, 1.1, BUTTON_Y, 'volume-up'),
+    previous: addButton(group, GLYPH_TEXTURES.previous, -2.5 * BUTTON_PITCH, BUTTON_Y, 'previous'),
+    playPause: addButton(group, GLYPH_TEXTURES.playPause, -1.5 * BUTTON_PITCH, BUTTON_Y, 'play-pause'),
+    stop: addButton(group, GLYPH_TEXTURES.stop, -0.5 * BUTTON_PITCH, BUTTON_Y, 'stop'),
+    next: addButton(group, GLYPH_TEXTURES.next, 0.5 * BUTTON_PITCH, BUTTON_Y, 'next'),
+    volumeDown: addButton(group, GLYPH_TEXTURES.volumeDown, 1.5 * BUTTON_PITCH, BUTTON_Y, 'volume-down'),
+    volumeUp: addButton(group, GLYPH_TEXTURES.volumeUp, 2.5 * BUTTON_PITCH, BUTTON_Y, 'volume-up'),
   };
 
   group.rotation.y = DEFAULT_ROTATION_Y;
 
   const interactiveMeshes = [lid, ...Object.values(buttons).map((b) => b.button)];
 
-  return { group, lidPivot, lid, disc, playPauseGlyph: buttons.playPause.glyph, interactiveMeshes };
+  return { group, lidPivot, lid, discPivot, disc, discCover, interactiveMeshes };
 }
 
 export function createCdPlayerScene(canvas, callbacks = {}) {
@@ -255,7 +334,7 @@ export function createCdPlayerScene(canvas, callbacks = {}) {
   const pmremGenerator = addStandardLighting(scene, renderer);
 
   const lcd = buildLcdTexture();
-  const { group: device, lidPivot, disc, playPauseGlyph, interactiveMeshes } = buildDevice(lcd.texture);
+  const { group: device, lidPivot, discPivot, disc, discCover, interactiveMeshes } = buildDevice(lcd.texture);
   scene.add(device);
 
   let lidOpen = false;
@@ -263,11 +342,17 @@ export function createCdPlayerScene(canvas, callbacks = {}) {
   let hasDisc = false;
   let lastTitle = '';
   let lastTrackNumber = 1;
+  let lastTrackId = null;
 
   function redrawLcd() {
     drawLcd(lcd.canvas, lcd.texture, { title: lastTitle, trackNumber: lastTrackNumber, isPlaying, hasDisc });
   }
   redrawLcd();
+
+  function redrawDiscCover() {
+    drawDiscCover(discCover.canvas, discCover.texture, { title: lastTitle, trackId: lastTrackId });
+  }
+  redrawDiscCover();
 
   function triggerAction(hit) {
     const kind = hit.object.userData.interactive;
@@ -313,23 +398,28 @@ export function createCdPlayerScene(canvas, callbacks = {}) {
       const step = Math.sign(diff) * Math.min(Math.abs(diff), LID_ANIM_SPEED * delta);
       lidPivot.rotation.x += step;
     }
+    // The disc only spins while actually playing - paused or stopped, it
+    // sits still in the tray, same as a real player.
+    if (isPlaying && hasDisc) {
+      disc.rotation.y += DISC_SPIN_SPEED * delta;
+    }
   });
 
   return {
-    setTrackInfo(title, trackNumber) {
+    setTrackInfo(title, trackNumber, trackId) {
       lastTitle = title;
       lastTrackNumber = trackNumber;
+      lastTrackId = trackId;
       redrawLcd();
+      redrawDiscCover();
     },
     setPlaying(playing) {
       isPlaying = playing;
-      playPauseGlyph.material.map = playing ? GLYPH_TEXTURES.pause : GLYPH_TEXTURES.play;
-      playPauseGlyph.material.needsUpdate = true;
       redrawLcd();
     },
     setDiscLoaded(loaded) {
       hasDisc = loaded;
-      disc.visible = loaded;
+      discPivot.visible = loaded;
       redrawLcd();
     },
     resetRotation: controller.resetRotation,
