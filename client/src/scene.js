@@ -90,6 +90,55 @@ function truncate(ctx, text, maxWidth) {
   return `${result}...`;
 }
 
+// A small transparent canvas texture with a single white glyph drawn by
+// `draw(ctx, size)`, used to print real icons on the wheel and center
+// button so each clickable zone shows what it does instead of relying on
+// a generic decorative dot.
+function makeGlyphTexture(draw, color = '#ffffff') {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  draw(ctx, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function drawTriangle(ctx, cx, cy, size, rotationDeg) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((rotationDeg * Math.PI) / 180);
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.55, -size * 0.65);
+  ctx.lineTo(size * 0.7, 0);
+  ctx.lineTo(-size * 0.55, size * 0.65);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+const GLYPH_TEXTURES = {
+  play: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s * 0.53, s / 2, s * 0.34, 0)),
+  next: makeGlyphTexture((ctx, s) => {
+    drawTriangle(ctx, s * 0.38, s / 2, s * 0.22, 0);
+    drawTriangle(ctx, s * 0.68, s / 2, s * 0.22, 0);
+  }),
+  previous: makeGlyphTexture((ctx, s) => {
+    drawTriangle(ctx, s * 0.32, s / 2, s * 0.22, 180);
+    drawTriangle(ctx, s * 0.62, s / 2, s * 0.22, 180);
+  }),
+  // Triangles, not a +/- cross: a thin cross's vertical stroke shears into
+  // illegible noise at the wheel's top zone, which is heavily foreshortened
+  // from this camera angle. A solid triangle silhouette survives that
+  // distortion the same way the prev/next arrows already do.
+  volumeUp: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s / 2, s * 0.53, s * 0.34, -90), '#2b3230'),
+  volumeDown: makeGlyphTexture((ctx, s) => drawTriangle(ctx, s / 2, s * 0.47, s * 0.34, 90), '#2b3230'),
+};
+
 // Body is a portrait-oriented "candy bar" device: a screen sits in the top
 // third with margin on every side, a click wheel sits in the bottom half
 // with margin on every side, and there is deliberate clear space between
@@ -112,31 +161,27 @@ const WHEEL_MARGIN_BOTTOM = 0.14;
 const WHEEL_CENTER_Y = -(BODY_HEIGHT / 2 - WHEEL_MARGIN_BOTTOM - WHEEL_RADIUS);
 const CENTER_BUTTON_RADIUS = WHEEL_RADIUS * 0.38;
 
+// Cheaper than MeshPhysicalMaterial + clearcoat, which requires an extra
+// BRDF evaluation per pixel. Tuned metalness/roughness on plain
+// MeshStandardMaterial still reads as brushed metal against the room
+// environment map, at meaningfully lower per-frame GPU cost.
+function metalMaterial(color, metalness, roughness) {
+  return new THREE.MeshStandardMaterial({ color, metalness, roughness });
+}
+
 function buildDevice(screenTexture) {
   const group = new THREE.Group();
 
-  const bodyMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xdadedf,
-    metalness: 0.85,
-    roughness: 0.28,
-    clearcoat: 0.6,
-    clearcoatRoughness: 0.25,
-  });
-  const bodyGeometry = new RoundedBoxGeometry(BODY_WIDTH, BODY_HEIGHT, BODY_DEPTH, 6, 0.1);
-  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-  body.castShadow = true;
-  body.receiveShadow = true;
+  const body = new THREE.Mesh(
+    new RoundedBoxGeometry(BODY_WIDTH, BODY_HEIGHT, BODY_DEPTH, 6, 0.1),
+    metalMaterial(0xdadedf, 0.85, 0.3),
+  );
   group.add(body);
 
-  const bezelMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x0a1210,
-    metalness: 0.2,
-    roughness: 0.15,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.1,
-  });
-  const bezelGeometry = new RoundedBoxGeometry(SCREEN_WIDTH + 0.1, SCREEN_HEIGHT + 0.1, 0.02, 4, 0.03);
-  const bezel = new THREE.Mesh(bezelGeometry, bezelMaterial);
+  const bezel = new THREE.Mesh(
+    new RoundedBoxGeometry(SCREEN_WIDTH + 0.1, SCREEN_HEIGHT + 0.1, 0.02, 4, 0.03),
+    metalMaterial(0x0a1210, 0.2, 0.2),
+  );
   bezel.position.set(0, SCREEN_CENTER_Y, BODY_FRONT_Z + 0.006);
   group.add(bezel);
 
@@ -150,55 +195,63 @@ function buildDevice(screenTexture) {
   wheelGroup.position.set(0, WHEEL_CENTER_Y, BODY_FRONT_Z);
   group.add(wheelGroup);
 
-  const ringMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xc9cdce,
-    metalness: 0.8,
-    roughness: 0.25,
-    clearcoat: 0.5,
-  });
-  const ringGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.03, 64);
-  const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+  const ring = new THREE.Mesh(
+    new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.03, 64),
+    metalMaterial(0xc9cdce, 0.8, 0.28),
+  );
   ring.rotation.x = Math.PI / 2;
   ring.position.z = 0.01;
   ring.userData.interactive = 'wheel';
   wheelGroup.add(ring);
 
-  const centerMaterial = new THREE.MeshPhysicalMaterial({
-    color: ACCENT_HEX,
-    metalness: 0.35,
-    roughness: 0.3,
-    emissive: ACCENT_HEX,
-    emissiveIntensity: 0.15,
-  });
-  const centerGeometry = new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS, CENTER_BUTTON_RADIUS, 0.04, 40);
-  const center = new THREE.Mesh(centerGeometry, centerMaterial);
+  const center = new THREE.Mesh(
+    new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS, CENTER_BUTTON_RADIUS, 0.04, 40),
+    new THREE.MeshStandardMaterial({
+      color: ACCENT_HEX,
+      metalness: 0.35,
+      roughness: 0.3,
+      emissive: ACCENT_HEX,
+      emissiveIntensity: 0.15,
+    }),
+  );
   center.rotation.x = Math.PI / 2;
   center.position.z = 0.03;
   center.userData.interactive = 'center';
   wheelGroup.add(center);
 
-  const notchMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x3a3f3e,
-    metalness: 0.5,
-    roughness: 0.5,
-  });
-  const notchGeometry = new THREE.CylinderGeometry(0.032, 0.032, 0.02, 16);
-  const notchRadius = WHEEL_RADIUS * 0.78;
-  for (let i = 0; i < 4; i++) {
-    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const notch = new THREE.Mesh(notchGeometry, notchMaterial);
-    notch.rotation.x = Math.PI / 2;
-    notch.position.set(Math.cos(angle) * notchRadius, Math.sin(angle) * notchRadius, 0.021);
-    wheelGroup.add(notch);
+  // Printed icons so each clickable zone shows what it does, like a real
+  // click wheel: a play glyph on the center button, and volume/skip
+  // glyphs at the ring's four cardinal zones (these are children of
+  // wheelGroup directly, not ring, so "up" is simply +Y with no axis
+  // flip needed; a default PlaneGeometry already faces +Z toward camera).
+  const GLYPH_SIZE = 0.23;
+  const GLYPH_RADIUS = WHEEL_RADIUS * 0.72;
+
+  function addGlyph(texture, x, y, z, rotationDeg = 0) {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(GLYPH_SIZE, GLYPH_SIZE),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
+    );
+    mesh.position.set(x, y, z);
+    if (rotationDeg) mesh.rotation.z = (rotationDeg * Math.PI) / 180;
+    wheelGroup.add(mesh);
   }
 
-  const portMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x2b2f2f,
-    metalness: 0.3,
-    roughness: 0.6,
-  });
-  const portGeometry = new RoundedBoxGeometry(0.16, 0.035, 0.03, 2, 0.012);
-  const port = new THREE.Mesh(portGeometry, portMaterial);
+  // z is well proud of the ring's own front face (~0.025) so the glyph
+  // plane is never near-coplanar with it; too close and the two surfaces
+  // z-fight, which reads as illegible noise at grazing viewing angles
+  // (worst at the top of the wheel, which this camera sees edge-on).
+  const GLYPH_Z = 0.06;
+  addGlyph(GLYPH_TEXTURES.play, 0, 0, GLYPH_Z);
+  addGlyph(GLYPH_TEXTURES.volumeUp, 0, GLYPH_RADIUS, GLYPH_Z);
+  addGlyph(GLYPH_TEXTURES.volumeDown, 0, -GLYPH_RADIUS, GLYPH_Z);
+  addGlyph(GLYPH_TEXTURES.previous, -GLYPH_RADIUS, 0, GLYPH_Z);
+  addGlyph(GLYPH_TEXTURES.next, GLYPH_RADIUS, 0, GLYPH_Z);
+
+  const port = new THREE.Mesh(
+    new RoundedBoxGeometry(0.16, 0.035, 0.03, 2, 0.012),
+    metalMaterial(0x2b2f2f, 0.3, 0.6),
+  );
   port.position.set(0, -BODY_HEIGHT / 2 + 0.04, BODY_FRONT_Z - 0.01);
   group.add(port);
 
@@ -227,8 +280,8 @@ function classifyRingZone(localPoint) {
 export function createDeviceScene(canvas, callbacks = {}) {
   const { onPlayPause, onPrev, onNext, onVolumeUp, onVolumeDown } = callbacks;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -367,10 +420,16 @@ export function createDeviceScene(canvas, callbacks = {}) {
 
   const clock = new THREE.Clock();
   let animationFrame = null;
+  // Slow idle auto-rotation doesn't need a full 60fps to look smooth; only
+  // throttle during that phase, never while the user is actively dragging
+  // or during momentum, so interaction always stays fully responsive.
+  const IDLE_FRAME_INTERVAL = 1 / 30;
+  let timeSinceRender = 0;
 
   function animate() {
     animationFrame = requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.1);
+    let isIdleRotating = false;
 
     if (isDragging) {
       idleTime = 0;
@@ -382,7 +441,16 @@ export function createDeviceScene(canvas, callbacks = {}) {
       idleTime += delta;
       if (idleTime > 0.6) {
         device.rotation.y += AUTO_ROTATE_SPEED * delta;
+        isIdleRotating = true;
       }
+    }
+
+    if (isIdleRotating) {
+      timeSinceRender += delta;
+      if (timeSinceRender < IDLE_FRAME_INTERVAL) return;
+      timeSinceRender = 0;
+    } else {
+      timeSinceRender = 0;
     }
 
     renderer.render(scene, camera);
