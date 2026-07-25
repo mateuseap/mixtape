@@ -1,0 +1,105 @@
+:root {
+  --bg: #101715;
+  --surface: #17201d;
+  --line: #2a3733;
+  --accent: #35d0a5;
+  --lcd-bg: #0c1a14;
+  --lcd-fg: #8fe6c4;
+  --text: #e3ece9;
+  --text-muted: #8fa39c;
+  --font: 'Geist Mono', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+#app { width: 100%; max-width: 420px; }
+
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.login input,
+.login button,
+.upload-form input,
+.upload-form button {
+  font-family: var(--font);
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.login button,
+.controls button,
+.upload-form button {
+  cursor: pointer;
+}
+
+.device {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+
+.lcd {
+  background: var(--lcd-bg);
+  color: var(--lcd-fg);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.lcd-title { margin: 0; font-weight: bold; }
+.lcd-artist { margin: 0.25rem 0 0.75rem; color: var(--text-muted); }
+
+#seek { width: 100%; accent-color: var(--accent); }
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.controls button {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.controls button.active { color: var(--accent); border-color: var(--accent); }
+
+.library { margin-top: 1.5rem; }
+
+#track-list { list-style: none; padding: 0; margin: 1rem 0 0; }
+
+#track-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+#track-list li.current { color: var(--accent); }
+
+.track-artist { color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem; }
