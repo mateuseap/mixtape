@@ -17,7 +17,21 @@ const scrollLeftBtn = document.getElementById('scroll-left');
 const scrollRightBtn = document.getElementById('scroll-right');
 const canvas = document.getElementById('device-canvas');
 
-const scene = createDeviceScene(canvas);
+const VOLUME_STEP = 0.1;
+
+const scene = createDeviceScene(canvas, {
+  onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
+  onPrev: () => setState(prev(state)),
+  onNext: () => setState(next(state)),
+  onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
+  onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
+});
+
+function setVolume(value) {
+  audio.volume = Math.min(1, Math.max(0, value));
+  const slider = document.getElementById('pb-volume');
+  if (slider) slider.value = audio.volume;
+}
 
 function hashHue(id) {
   const str = String(id ?? 'x');
@@ -74,7 +88,7 @@ function wirePlayerBar() {
     if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration;
   });
   document.getElementById('pb-volume').addEventListener('input', (e) => {
-    audio.volume = Number(e.target.value);
+    setVolume(Number(e.target.value));
   });
 }
 
@@ -111,10 +125,19 @@ function renderTrackRow() {
   });
 }
 
+const REPEAT_LABELS = {
+  off: 'Repeat: off (click to repeat all)',
+  all: 'Repeat: all tracks (click to repeat one)',
+  one: 'Repeat: current track (click to turn off)',
+};
+
 function renderModeControls() {
   shuffleToggle.classList.toggle('active', state.shuffle);
+  shuffleToggle.title = state.shuffle ? 'Shuffle: on (click to turn off)' : 'Shuffle: off (click to turn on)';
+
   repeatToggle.classList.toggle('active', state.repeat !== 'off');
-  repeatToggle.textContent = state.repeat === 'one' ? 'REPEAT 1' : 'REPEAT';
+  repeatToggle.classList.toggle('repeat-one', state.repeat === 'one');
+  repeatToggle.title = REPEAT_LABELS[state.repeat];
 }
 
 function iconPlay() {

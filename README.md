@@ -27,14 +27,14 @@ Open, no-login library · Upload and stream your own files · No subscriptions.
 Streaming services do not keep your files, and existing self-hosted media servers are built for entire collections with transcoding, users, and settings you do not need for a personal MP3 folder. Mixtape is a small, single-purpose alternative: upload MP3s, get a real-time 3D player, keep everything on your own server.
 
 - **Your files.** MP3s live on your server, not a third party's.
-- **Interactive 3D UI.** A WebGL device you can drag to rotate, with a live LCD readout of the current track, instead of a generic table.
+- **Interactive 3D UI.** A WebGL device you can drag to rotate, with a live LCD readout of the current track. The click wheel is genuinely clickable: center to play/pause, and up/down/left/right for volume and skip, like a real click wheel, instead of a generic table.
 - **Open library.** No accounts, no password gate. Anyone with access to the app can add or play tracks.
 
 ## Features
 
 |  |  |
 |--|--|
-| 🎛 **3D device** | A draggable, auto-rotating WebGL player built with Three.js, with a live canvas-texture LCD screen |
+| 🎛 **Clickable 3D device** | A draggable, auto-rotating WebGL click wheel: click center to play/pause, or the ring's top/bottom/left/right for volume and skip |
 | 📤 **Drop-in uploads** | Pick an MP3 and it appears in the library immediately, no form fields required |
 | 🏷 **Automatic tagging** | ID3 title/artist/album/duration parsed on upload, falls back to the filename |
 | ⏩ **Real seeking** | HTTP Range-request streaming, so scrubbing does not need the whole file downloaded |

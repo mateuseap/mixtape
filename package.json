@@ -1,6 +1,6 @@
 {
   "name": "mixtape",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "An open MP3 library with a 3D interactive player UI",
   "workspaces": ["client", "server"],
