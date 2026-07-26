@@ -299,7 +299,7 @@ function classifyRingZone(localPoint) {
   return 'volume-down';
 }
 
-export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
+export function createDeviceScene(canvas, callbacks = {}, audioAnalyser = null) {
   const { onPlayPause, onPrev, onNext, onVolumeUp, onVolumeDown } = callbacks;
 
   const renderer = createRenderer(canvas);
@@ -318,38 +318,15 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
 
   let lastTitle = '';
   let lastArtist = '';
-  let lastVolume = audioElement ? audioElement.volume : 1;
+  let lastVolume = 1;
   drawScreen(screenTexture.canvas, screenTexture.texture, { title: '', artist: '', volume: lastVolume });
-
-  // Web Audio analyser for the live waveform. Created lazily on first user
-  // gesture (autoplay policies block AudioContext until then) and wraps the
-  // shared <audio> element exactly once, since a MediaElementSourceNode can
-  // only ever be created a single time per element.
-  let analyser = null;
-  let waveformBuffer = null;
-  function ensureAnalyser() {
-    if (analyser || !audioElement) return;
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      const audioContext = new AudioContextClass();
-      const source = audioContext.createMediaElementSource(audioElement);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      waveformBuffer = new Uint8Array(analyser.frequencyBinCount);
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-    } catch {
-      // Web Audio unavailable or already wired; the screen just shows a
-      // flat line, which is a harmless visual degradation.
-    }
-  }
 
   const interactiveMeshes = [ring, center];
 
   function triggerAction(hit) {
     const kind = hit.object.userData.interactive;
     if (kind === 'center') {
-      ensureAnalyser();
+      audioAnalyser?.ensure();
       onPlayPause?.();
       return;
     }
@@ -395,14 +372,12 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
     screenRedrawAccum += delta;
     if (screenRedrawAccum < SCREEN_REDRAW_INTERVAL) return;
     screenRedrawAccum = 0;
-    if (isPlaying && analyser && waveformBuffer) {
-      analyser.getByteTimeDomainData(waveformBuffer);
-    }
+    const waveform = isPlaying ? audioAnalyser?.read() : null;
     drawScreen(screenTexture.canvas, screenTexture.texture, {
       title: lastTitle,
       artist: lastArtist,
       volume: lastVolume,
-      waveform: isPlaying ? waveformBuffer : null,
+      waveform,
       isPlaying,
       marqueeTime,
     });
@@ -419,12 +394,6 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
     setPlaying(playing) {
       isPlaying = playing;
     },
-    // Was only ever called from the wheel's own center-click handler, so
-    // starting playback from the player bar or a track card - both more
-    // common than reaching into the 3D scene - never created the analyser,
-    // and the waveform sat flat forever. Exposed here so every playback
-    // entry point can arm it on its own user gesture.
-    ensureAudioContext: ensureAnalyser,
     resetRotation: controller.resetRotation,
     dispose() {
       stop();
