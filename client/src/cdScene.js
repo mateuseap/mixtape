@@ -34,17 +34,18 @@ const SPEAKER_X = 0.98;
 
 const BAY_RADIUS = 0.24;
 const BAY_Y = 0.38;
-// The actual root cause of the "flashy lights" bug: at -0.015 with a bay
-// height of 0.03, the bay's front cap landed at exactly FRONT_Z (0.4) -
-// precisely coplanar with the chassis's own front face. Two full surfaces
-// sharing the same depth is a textbook z-fighting setup: the GPU has no
-// stable answer for which one wins the depth test per pixel, and it reads
-// as a flickering, wedge-shaped pattern across the whole bay. No amount of
-// tuning metalness/roughness/envMapIntensity could fix this, because it
-// was never a material or reflection problem. Recessing the bay properly
-// (matching the "shallow recessed disc" it was always meant to be) fixes
-// it at the source.
-const BAY_Z = FRONT_Z - 0.035;
+// The chassis is a single solid box, not a shell with an actual cutout, so
+// anything placed BEHIND its front face (z < FRONT_Z) is fully occluded by
+// that opaque surface - not dim, not z-fighting, just invisible. That was
+// the bug after the previous "fix": pushing the bay to FRONT_Z - 0.035 to
+// stop it z-fighting against the chassis (both surfaces exactly coplanar
+// at FRONT_Z) also hid it completely behind that same solid face. Every
+// other front-mounted part (speakers at FRONT_Z + 0.02, buttons at
+// FRONT_Z + 0.03) already sits PROUD of the chassis for this exact reason;
+// the bay needs the same treatment; a comfortable margin (rather than a
+// hair's width) keeps the whole cylinder, including its rim, clear of the
+// chassis face so there is no coplanar surface left to fight over.
+const BAY_Z = FRONT_Z + 0.02;
 
 const LCD_Y = -0.04;
 const LCD_WIDTH = 0.56;
@@ -252,12 +253,13 @@ function buildDevice(lcdTexture) {
     group.add(rim);
   }
 
-  // CD bay: a shallow recessed disc with a center spindle. The disc mesh
-  // (added below, toggled by setDiscLoaded) sits at the same depth so it
-  // reads as resting in the tray, not floating above it. Low metalness and
-  // a flat matte finish keep this reading as a solid tray rather than
-  // shiny metal (the actual "flashy lights" bug turned out to be BAY_Z
-  // z-fighting against the chassis front face - see that constant).
+  // CD bay: a shallow disc with a center spindle, sitting proud of the
+  // chassis face (see BAY_Z) like every other front-mounted part. The disc
+  // mesh (added below, toggled by setDiscLoaded) sits at the same depth so
+  // it reads as resting in the tray, not floating above it. Low metalness
+  // and a flat matte finish keep this reading as a solid tray rather than
+  // shiny metal (the original "flashy lights" bug was BAY_Z z-fighting
+  // against the chassis front face - see that constant).
   const bayMaterial = metalMaterial(0x11201b, 0, 0.85);
   bayMaterial.envMapIntensity = 0;
   const bay = new THREE.Mesh(new THREE.CylinderGeometry(BAY_RADIUS, BAY_RADIUS, 0.03, 48), bayMaterial);
@@ -265,8 +267,8 @@ function buildDevice(lcdTexture) {
   bay.position.set(0, BAY_Y, BAY_Z);
   group.add(bay);
 
-  // Kept shallow and set proud of the (now properly recessed) bay by only
-  // a small margin, well clear of the closed lid's own front face.
+  // Kept shallow and set proud of the bay by only a small margin, well
+  // clear of the closed lid's own front face.
   const spindleMaterial = metalMaterial(0x4a5250, 0, 0.85);
   spindleMaterial.envMapIntensity = 0;
   const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 24), spindleMaterial);

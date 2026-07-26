@@ -3,8 +3,14 @@ import { fetchTracks, uploadTrack, deleteTrack, streamUrl } from './api.js';
 import { createPlayerState, currentTrack, play, pause, next, prev, cycleRepeat, toggleShuffle } from './player.js';
 import { createDeviceScene } from './scene.js';
 import { createCdPlayerScene } from './cdScene.js';
+import { createAudioAnalyser } from './audioAnalyser.js';
 
 const audio = new Audio();
+// Owned here, not by either scene: it must outlive individual scene mounts
+// so switching between the MP3 and CD player (which disposes and recreates
+// the active scene) never loses the analyser wired to the shared <audio>
+// element. See audioAnalyser.js for why that matters.
+const audioAnalyser = createAudioAnalyser(audio);
 let state = createPlayerState([]);
 
 const playerBar = document.getElementById('player-bar');
@@ -53,7 +59,7 @@ function mountMp3Scene() {
       onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
       onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
     },
-    audio,
+    audioAnalyser,
   );
 }
 
@@ -154,15 +160,15 @@ function syncSeekDisplay() {
 
 function wirePlayerBar() {
   document.getElementById('pb-prev').addEventListener('click', () => {
-    scene.ensureAudioContext?.();
+    audioAnalyser.ensure();
     setState(prev(state));
   });
   document.getElementById('pb-play').addEventListener('click', () => {
-    scene.ensureAudioContext?.();
+    audioAnalyser.ensure();
     setState(state.isPlaying ? pause(state) : play(state));
   });
   document.getElementById('pb-next').addEventListener('click', () => {
-    scene.ensureAudioContext?.();
+    audioAnalyser.ensure();
     setState(next(state));
   });
   document.getElementById('pb-seek').addEventListener('input', (e) => {
@@ -194,7 +200,7 @@ function renderTrackRow() {
   trackRow.querySelectorAll('.track-card').forEach((card) => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.track-card-delete')) return;
-      scene.ensureAudioContext?.();
+      audioAnalyser.ensure();
       setState(play(state, Number(card.dataset.index)));
     });
   });
