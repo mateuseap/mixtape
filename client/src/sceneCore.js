@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 export const DAMPING = 0.9;
 export const DRAG_TO_RADIANS = 0.012;
 export const CLICK_MOVE_THRESHOLD = 6; // px, above this a pointerdown+up is a drag, not a click
+const CLICK_MOVE_THRESHOLD_TOUCH = 10;
 export const AUTO_ROTATE_SPEED = 0.12; // radians per second
 export const IDLE_FRAME_INTERVAL = 1 / 30; // throttle idle auto-rotate rendering to 30fps
 
@@ -110,6 +111,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
   let pointerDownX = 0;
   let pointerDownY = 0;
   let totalMove = 0;
+  let clickMoveThreshold = CLICK_MOVE_THRESHOLD;
 
   const raycaster = new THREE.Raycaster();
   const pointerNDC = new THREE.Vector2();
@@ -134,6 +136,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
     pointerDownY = event.clientY;
     totalMove = 0;
     rotationVelocity = 0;
+    clickMoveThreshold = event.pointerType === 'touch' ? CLICK_MOVE_THRESHOLD_TOUCH : CLICK_MOVE_THRESHOLD;
     canvas.setPointerCapture(event.pointerId);
   }
 
@@ -159,7 +162,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
     } catch {
       // pointer capture may already be released
     }
-    if (totalMove < CLICK_MOVE_THRESHOLD) {
+    if (totalMove < clickMoveThreshold) {
       const hit = hitTest(event);
       if (hit) onClick?.(hit);
     }

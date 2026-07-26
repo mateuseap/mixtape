@@ -226,6 +226,17 @@ function addButton(parent, texture, x, y, action) {
   return { button, glyph };
 }
 
+function addHitProxy(parent, x, y, action, width = BUTTON_SIZE + 0.04, height = BUTTON_SIZE + 0.12) {
+  const proxy = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, 0.06),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+  );
+  proxy.position.set(x, y, FRONT_Z + 0.045);
+  proxy.userData.interactive = action;
+  parent.add(proxy);
+  return proxy;
+}
+
 function buildDevice(lcdTexture) {
   const group = new THREE.Group();
 
@@ -336,9 +347,11 @@ function buildDevice(lcdTexture) {
     volumeUp: addButton(group, GLYPH_TEXTURES.volumeUp, 2.5 * BUTTON_PITCH, BUTTON_Y, 'volume-up'),
   };
 
+  const playPauseHitProxy = addHitProxy(group, -1.5 * BUTTON_PITCH, BUTTON_Y, 'play-pause');
+
   group.rotation.y = DEFAULT_ROTATION_Y;
 
-  const interactiveMeshes = [lid, ...Object.values(buttons).map((b) => b.button)];
+  const interactiveMeshes = [lid, playPauseHitProxy, ...Object.values(buttons).map((b) => b.button)];
 
   return { group, lidPivot, lid, discPivot, disc, discCover, interactiveMeshes };
 }
