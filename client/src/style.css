@@ -189,18 +189,9 @@ button {
 
 /* ---------- Device stage ---------- */
 
-.stage {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 420px;
-  padding: 1rem 0;
-}
-
 .device-stage {
-  width: min(520px, 80vw);
-  height: 420px;
+  width: min(520px, 90vw);
+  aspect-ratio: 520 / 420;
   position: relative;
   /* The contact shadow lives entirely here, in CSS, not as a 3D-rendered
      plane behind the device. A pure CSS radial gradient is guaranteed to
@@ -626,6 +617,10 @@ input[type='range']::-moz-range-thumb {
 }
 
 @media (max-width: 640px) {
+  .stage {
+    min-height: 300px;
+  }
+
   .mode-card {
     display: none;
   }
@@ -677,5 +672,9 @@ input[type='range']::-moz-range-thumb {
 
   .track-row-wrap {
     gap: 0.5rem;
+  }
+
+  .device-stage {
+    max-height: 55vh;
   }
 }
