@@ -110,7 +110,6 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
   let idleTime = 0;
   let pointerDownX = 0;
   let pointerDownY = 0;
-  let totalMove = 0;
   let clickMoveThreshold = CLICK_MOVE_THRESHOLD;
 
   const raycaster = new THREE.Raycaster();
@@ -134,7 +133,6 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
     lastPointerX = event.clientX;
     pointerDownX = event.clientX;
     pointerDownY = event.clientY;
-    totalMove = 0;
     rotationVelocity = 0;
     clickMoveThreshold = event.pointerType === 'touch' ? CLICK_MOVE_THRESHOLD_TOUCH : CLICK_MOVE_THRESHOLD;
     canvas.setPointerCapture(event.pointerId);
@@ -148,7 +146,6 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
     }
     const deltaX = event.clientX - lastPointerX;
     lastPointerX = event.clientX;
-    totalMove = Math.hypot(event.clientX - pointerDownX, event.clientY - pointerDownY);
     const delta = deltaX * DRAG_TO_RADIANS;
     deviceGroup.rotation.y += delta;
     rotationVelocity = delta;
@@ -162,7 +159,8 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
     } catch {
       // pointer capture may already be released
     }
-    if (totalMove < clickMoveThreshold) {
+    const tapDist = Math.hypot(event.clientX - pointerDownX, event.clientY - pointerDownY);
+    if (tapDist < clickMoveThreshold) {
       const hit = hitTest(event);
       if (hit) onClick?.(hit);
     }
