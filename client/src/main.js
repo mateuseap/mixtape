@@ -136,6 +136,20 @@ function renderPlayerBar() {
     <input id="pb-volume" class="pb-volume" type="range" min="0" max="1" step="0.01" value="${audio.volume}" aria-label="Volume" />
   `;
   wirePlayerBar();
+  // The seek/time elements above are recreated with default zero values on
+  // every render (a play/pause toggle re-renders the whole bar); without
+  // this they'd flash back to 0:00 for a frame before the next `timeupdate`
+  // tick corrects them, reading as a buggy flick of the time pointer.
+  syncSeekDisplay();
+}
+
+function syncSeekDisplay() {
+  const seek = document.getElementById('pb-seek');
+  const elapsed = document.getElementById('pb-elapsed');
+  const total = document.getElementById('pb-total');
+  if (seek && audio.duration) seek.value = audio.currentTime / audio.duration;
+  if (elapsed) elapsed.textContent = formatTime(audio.currentTime);
+  if (total) total.textContent = formatTime(audio.duration);
 }
 
 function wirePlayerBar() {
@@ -246,18 +260,8 @@ function setState(newState) {
 }
 
 audio.addEventListener('ended', () => setState(next(state)));
-audio.addEventListener('timeupdate', () => {
-  const seek = document.getElementById('pb-seek');
-  const elapsed = document.getElementById('pb-elapsed');
-  const total = document.getElementById('pb-total');
-  if (seek && audio.duration) seek.value = audio.currentTime / audio.duration;
-  if (elapsed) elapsed.textContent = formatTime(audio.currentTime);
-  if (total) total.textContent = formatTime(audio.duration);
-});
-audio.addEventListener('loadedmetadata', () => {
-  const total = document.getElementById('pb-total');
-  if (total) total.textContent = formatTime(audio.duration);
-});
+audio.addEventListener('timeupdate', syncSeekDisplay);
+audio.addEventListener('loadedmetadata', syncSeekDisplay);
 
 shuffleToggle.addEventListener('click', () => setState(toggleShuffle(state)));
 repeatToggle.addEventListener('click', () => setState(cycleRepeat(state)));
