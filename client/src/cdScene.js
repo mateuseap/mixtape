@@ -34,7 +34,17 @@ const SPEAKER_X = 0.98;
 
 const BAY_RADIUS = 0.24;
 const BAY_Y = 0.38;
-const BAY_Z = FRONT_Z - 0.015;
+// The actual root cause of the "flashy lights" bug: at -0.015 with a bay
+// height of 0.03, the bay's front cap landed at exactly FRONT_Z (0.4) -
+// precisely coplanar with the chassis's own front face. Two full surfaces
+// sharing the same depth is a textbook z-fighting setup: the GPU has no
+// stable answer for which one wins the depth test per pixel, and it reads
+// as a flickering, wedge-shaped pattern across the whole bay. No amount of
+// tuning metalness/roughness/envMapIntensity could fix this, because it
+// was never a material or reflection problem. Recessing the bay properly
+// (matching the "shallow recessed disc" it was always meant to be) fixes
+// it at the source.
+const BAY_Z = FRONT_Z - 0.035;
 
 const LCD_Y = -0.04;
 const LCD_WIDTH = 0.56;
@@ -245,9 +255,9 @@ function buildDevice(lcdTexture) {
   // CD bay: a shallow recessed disc with a center spindle. The disc mesh
   // (added below, toggled by setDiscLoaded) sits at the same depth so it
   // reads as resting in the tray, not floating above it. Low metalness and
-  // a dampened env reflection keep this a solid matte tray - at the
-  // original 0.3 metalness it picked up sharp, busy specular highlights
-  // from the room environment map that read as flickering lights.
+  // a flat matte finish keep this reading as a solid tray rather than
+  // shiny metal (the actual "flashy lights" bug turned out to be BAY_Z
+  // z-fighting against the chassis front face - see that constant).
   const bayMaterial = metalMaterial(0x11201b, 0, 0.85);
   bayMaterial.envMapIntensity = 0;
   const bay = new THREE.Mesh(new THREE.CylinderGeometry(BAY_RADIUS, BAY_RADIUS, 0.03, 48), bayMaterial);
@@ -255,12 +265,13 @@ function buildDevice(lcdTexture) {
   bay.position.set(0, BAY_Y, BAY_Z);
   group.add(bay);
 
-  const spindle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055, 0.055, 0.05, 24),
-    metalMaterial(0x4a5250, 0.6, 0.4),
-  );
+  // Kept shallow and set proud of the (now properly recessed) bay by only
+  // a small margin, well clear of the closed lid's own front face.
+  const spindleMaterial = metalMaterial(0x4a5250, 0, 0.85);
+  spindleMaterial.envMapIntensity = 0;
+  const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 24), spindleMaterial);
   spindle.rotation.x = Math.PI / 2;
-  spindle.position.set(0, BAY_Y, BAY_Z + 0.02);
+  spindle.position.set(0, BAY_Y, BAY_Z + 0.01);
   group.add(spindle);
 
   // The disc lives under its own pivot, tilted flat to face the camera.
@@ -303,13 +314,8 @@ function buildDevice(lcdTexture) {
     transparent: true,
     opacity: 0.82,
   });
-  // Zeroed out: even at low metalness, this flat panel mirrored the room
-  // environment's ceiling lights sharply enough to look like a flickering
-  // starburst rather than a solid tinted panel. Killing the env reflection
-  // entirely (direct lights still shade it normally) is what actually
-  // fixes it, not just dialing metalness down.
   lidMaterial.envMapIntensity = 0;
-  const lid = new THREE.Mesh(new RoundedBoxGeometry(BAY_RADIUS * 2 + 0.03, lidHeight, 0.02, 4, 0.03), lidMaterial);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(BAY_RADIUS * 2 + 0.03, lidHeight, 0.02), lidMaterial);
   lid.position.set(0, -lidHeight / 2, 0.015);
   lid.userData.interactive = 'lid';
   lidPivot.add(lid);

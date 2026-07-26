@@ -153,11 +153,18 @@ function syncSeekDisplay() {
 }
 
 function wirePlayerBar() {
-  document.getElementById('pb-prev').addEventListener('click', () => setState(prev(state)));
+  document.getElementById('pb-prev').addEventListener('click', () => {
+    scene.ensureAudioContext?.();
+    setState(prev(state));
+  });
   document.getElementById('pb-play').addEventListener('click', () => {
+    scene.ensureAudioContext?.();
     setState(state.isPlaying ? pause(state) : play(state));
   });
-  document.getElementById('pb-next').addEventListener('click', () => setState(next(state)));
+  document.getElementById('pb-next').addEventListener('click', () => {
+    scene.ensureAudioContext?.();
+    setState(next(state));
+  });
   document.getElementById('pb-seek').addEventListener('input', (e) => {
     if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration;
   });
@@ -187,6 +194,7 @@ function renderTrackRow() {
   trackRow.querySelectorAll('.track-card').forEach((card) => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.track-card-delete')) return;
+      scene.ensureAudioContext?.();
       setState(play(state, Number(card.dataset.index)));
     });
   });
