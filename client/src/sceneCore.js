@@ -159,9 +159,17 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
     } catch {
       // pointer capture may already be released
     }
-    const tapDist = Math.hypot(event.clientX - pointerDownX, event.clientY - pointerDownY);
+    // Some mobile browsers fire pointercancel with clientX=0,clientY=0,
+    // which would make the tap distance check fail (distance from the
+    // actual touch start to (0,0) is always huge).  Fall back to the
+    // last known good coordinates (recorded at pointerdown) when the
+    // event has no reliable position.
+    const fallback = event.clientX === 0 && event.clientY === 0;
+    const px = fallback ? pointerDownX : event.clientX;
+    const py = fallback ? pointerDownY : event.clientY;
+    const tapDist = Math.hypot(px - pointerDownX, py - pointerDownY);
     if (tapDist < clickMoveThreshold) {
-      const hit = hitTest(event);
+      const hit = hitTest(fallback ? { clientX: pointerDownX, clientY: pointerDownY } : event);
       if (hit) onClick?.(hit);
     }
   }
