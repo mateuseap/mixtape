@@ -4,7 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 export const DAMPING = 0.9;
 export const DRAG_TO_RADIANS = 0.012;
 export const CLICK_MOVE_THRESHOLD = 6; // px, above this a pointerdown+up is a drag, not a click
-const CLICK_MOVE_THRESHOLD_TOUCH = 10;
+export const CLICK_MOVE_THRESHOLD_TOUCH = 10;
 export const AUTO_ROTATE_SPEED = 0.12; // radians per second
 export const IDLE_FRAME_INTERVAL = 1 / 30; // throttle idle auto-rotate rendering to 30fps
 
@@ -172,6 +172,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
 
   return {
     // Called once per animation frame. Returns true if this frame is a
@@ -203,6 +204,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerUp);
     },
   };
 }

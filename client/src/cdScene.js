@@ -413,12 +413,24 @@ export function createCdPlayerScene(canvas, callbacks = {}) {
     onClick: triggerAction,
   });
 
+  const DEVICE_WIDTH = 3.0;
+  const DEVICE_HEIGHT = 1.9;
+
   function resize() {
     const { clientWidth, clientHeight } = canvas;
     if (clientWidth === 0 || clientHeight === 0) return;
     camera.aspect = clientWidth / clientHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(clientWidth, clientHeight, false);
+
+    if (camera.aspect < 1.0) {
+      const vFov = (camera.fov * Math.PI) / 180;
+      const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+      const distForWidth = (DEVICE_WIDTH / 2) / Math.tan(hFov / 2);
+      const distForHeight = (DEVICE_HEIGHT / 2) / Math.tan(vFov / 2);
+      const neededZ = Math.max(distForWidth, distForHeight) * 1.15;
+      camera.position.z = Math.min(7.0, Math.max(3.5, neededZ));
+    }
   }
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(canvas);
