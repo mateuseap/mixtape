@@ -190,6 +190,10 @@ button {
 
 /* ---------- Device stage ---------- */
 
+.stage-area {
+  position: relative;
+}
+
 .stage {
   position: relative;
   display: flex;
