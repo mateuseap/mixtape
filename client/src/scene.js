@@ -238,6 +238,15 @@ function buildDevice(screenTexture) {
   center.userData.interactive = 'center';
   wheelGroup.add(center);
 
+  const centerHitArea = new THREE.Mesh(
+    new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS + 0.08, CENTER_BUTTON_RADIUS + 0.08, 0.05, 40),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+  );
+  centerHitArea.rotation.x = Math.PI / 2;
+  centerHitArea.position.z = 0.035;
+  centerHitArea.userData.interactive = 'center';
+  wheelGroup.add(centerHitArea);
+
   // Printed icons so each clickable zone shows what it does, like a real
   // click wheel: a static combined play/pause glyph on the center button
   // (real devices never swap the button's own icon, see setPlaying), and
@@ -278,7 +287,7 @@ function buildDevice(screenTexture) {
   group.add(port);
 
   group.rotation.y = DEFAULT_ROTATION_Y;
-  return { group, wheelGroup, ring, center };
+  return { group, wheelGroup, ring, center, centerHitArea };
 }
 
 // Classifies a click on the ring into one of four zones by the angle of the
@@ -313,7 +322,7 @@ export function createDeviceScene(canvas, callbacks = {}, audioAnalyser = null) 
   const pmremGenerator = addStandardLighting(scene, renderer);
 
   const screenTexture = buildScreenTexture();
-  const { group: device, ring, center } = buildDevice(screenTexture.texture);
+  const { group: device, ring, center, centerHitArea } = buildDevice(screenTexture.texture);
   scene.add(device);
 
   let lastTitle = '';
@@ -321,7 +330,7 @@ export function createDeviceScene(canvas, callbacks = {}, audioAnalyser = null) 
   let lastVolume = 1;
   drawScreen(screenTexture.canvas, screenTexture.texture, { title: '', artist: '', volume: lastVolume });
 
-  const interactiveMeshes = [ring, center];
+  const interactiveMeshes = [ring, centerHitArea, center];
 
   function triggerAction(hit) {
     const kind = hit.object.userData.interactive;
