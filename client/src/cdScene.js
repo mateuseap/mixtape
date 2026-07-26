@@ -14,7 +14,12 @@ import {
 const DEFAULT_ROTATION_Y = 0.3;
 
 const CHASSIS_WIDTH = 2.9;
-const CHASSIS_HEIGHT = 1.15;
+// Taller than before: at the old 1.15 the closed lid's bottom edge (see
+// lidHeight below) landed at y=-0.02, which is inside the LCD's own top
+// edge (y=0.02) - the lid was physically overlapping the screen. Taller
+// chassis buys enough vertical room to give the bay, lid, LCD, and buttons
+// their own clear bands with margin between each.
+const CHASSIS_HEIGHT = 1.5;
 const CHASSIS_DEPTH = 0.8;
 const FRONT_Z = CHASSIS_DEPTH / 2;
 
@@ -28,14 +33,14 @@ const SPEAKER_RADIUS = 0.4;
 const SPEAKER_X = 0.98;
 
 const BAY_RADIUS = 0.24;
-const BAY_Y = 0.28;
+const BAY_Y = 0.38;
 const BAY_Z = FRONT_Z - 0.015;
 
-const LCD_Y = -0.08;
+const LCD_Y = -0.04;
 const LCD_WIDTH = 0.56;
 const LCD_HEIGHT = 0.2;
 
-const BUTTON_Y = -0.35;
+const BUTTON_Y = -0.42;
 const BUTTON_SIZE = 0.15;
 // Six buttons on a fixed pitch, centered on x=0 - the whole row spans
 // ±0.5, comfortably inside the 0.58 gap left by the speakers.
@@ -239,11 +244,13 @@ function buildDevice(lcdTexture) {
 
   // CD bay: a shallow recessed disc with a center spindle. The disc mesh
   // (added below, toggled by setDiscLoaded) sits at the same depth so it
-  // reads as resting in the tray, not floating above it.
-  const bay = new THREE.Mesh(
-    new THREE.CylinderGeometry(BAY_RADIUS, BAY_RADIUS, 0.03, 48),
-    metalMaterial(0x11201b, 0.3, 0.6),
-  );
+  // reads as resting in the tray, not floating above it. Low metalness and
+  // a dampened env reflection keep this a solid matte tray - at the
+  // original 0.3 metalness it picked up sharp, busy specular highlights
+  // from the room environment map that read as flickering lights.
+  const bayMaterial = metalMaterial(0x11201b, 0, 0.85);
+  bayMaterial.envMapIntensity = 0;
+  const bay = new THREE.Mesh(new THREE.CylinderGeometry(BAY_RADIUS, BAY_RADIUS, 0.03, 48), bayMaterial);
   bay.rotation.x = Math.PI / 2;
   bay.position.set(0, BAY_Y, BAY_Z);
   group.add(bay);
@@ -284,17 +291,25 @@ function buildDevice(lcdTexture) {
   lidPivot.position.set(0, BAY_Y + BAY_RADIUS, BAY_Z + 0.02);
   group.add(lidPivot);
 
-  const lidHeight = BAY_RADIUS * 2 + 0.06;
-  const lid = new THREE.Mesh(
-    new RoundedBoxGeometry(BAY_RADIUS * 2 + 0.06, lidHeight, 0.02, 4, 0.03),
-    new THREE.MeshStandardMaterial({
-      color: 0x3a4744,
-      metalness: 0.3,
-      roughness: 0.25,
-      transparent: true,
-      opacity: 0.82,
-    }),
-  );
+  // Small trim margin only (was +0.06, which pushed the lid's closed
+  // bottom edge down into the LCD's own top edge - the two visibly
+  // overlapped). +0.03 still fully covers the bay with a hair of trim,
+  // clear of the screen below.
+  const lidHeight = BAY_RADIUS * 2 + 0.03;
+  const lidMaterial = new THREE.MeshStandardMaterial({
+    color: 0x3a4744,
+    metalness: 0,
+    roughness: 0.85,
+    transparent: true,
+    opacity: 0.82,
+  });
+  // Zeroed out: even at low metalness, this flat panel mirrored the room
+  // environment's ceiling lights sharply enough to look like a flickering
+  // starburst rather than a solid tinted panel. Killing the env reflection
+  // entirely (direct lights still shade it normally) is what actually
+  // fixes it, not just dialing metalness down.
+  lidMaterial.envMapIntensity = 0;
+  const lid = new THREE.Mesh(new RoundedBoxGeometry(BAY_RADIUS * 2 + 0.03, lidHeight, 0.02, 4, 0.03), lidMaterial);
   lid.position.set(0, -lidHeight / 2, 0.015);
   lid.userData.interactive = 'lid';
   lidPivot.add(lid);
