@@ -2,7 +2,7 @@
 
 # 🎵 Mixtape
 
-**Your MP3s, your server, real sound equipment.**
+**Your MP3s, your server, real sound equipment.**  
 Open, no-login library · Interactive 3D devices · No subscriptions.
 
 [![CI](https://github.com/mateuseap/mixtape/actions/workflows/ci.yml/badge.svg)](https://github.com/mateuseap/mixtape/actions)
