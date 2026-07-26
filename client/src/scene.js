@@ -419,6 +419,12 @@ export function createDeviceScene(canvas, callbacks = {}, audioElement = null) {
     setPlaying(playing) {
       isPlaying = playing;
     },
+    // Was only ever called from the wheel's own center-click handler, so
+    // starting playback from the player bar or a track card - both more
+    // common than reaching into the 3D scene - never created the analyser,
+    // and the waveform sat flat forever. Exposed here so every playback
+    // entry point can arm it on its own user gesture.
+    ensureAudioContext: ensureAnalyser,
     resetRotation: controller.resetRotation,
     dispose() {
       stop();
