@@ -46,7 +46,20 @@
       <button id="device-cd" class="device-tab" type="button" role="tab" aria-selected="false">CD Player</button>
     </div>
 
-    <section class="stage">
+    <div class="stage-area">
+      <section class="stage">
+        <div class="device-stage">
+          <canvas id="device-canvas"></canvas>
+        </div>
+        <button id="reset-view" class="reset-btn" type="button" title="Reset the device to its default angle">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+            <path d="M3 4v5h5"></path>
+          </svg>
+          <span>RESET VIEW</span>
+        </button>
+      </section>
+
       <div class="mode-card">
         <span class="mode-label">MODE</span>
         <div class="mode-toggles">
@@ -71,19 +84,7 @@
           </button>
         </div>
       </div>
-
-      <div class="device-stage">
-        <canvas id="device-canvas"></canvas>
-      </div>
-
-      <button id="reset-view" class="reset-btn" type="button" title="Reset the device to its default angle">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
-          <path d="M3 4v5h5"></path>
-        </svg>
-        <span>RESET VIEW</span>
-      </button>
-    </section>
+    </div>
 
     <p class="drag-hint" id="drag-hint"><span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE &middot; CLICK CENTER TO PLAY <span aria-hidden="true">&rarr;</span></p>
 
