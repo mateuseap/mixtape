@@ -27,6 +27,7 @@ body {
   color: var(--ink);
   font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
 }
 
 .page {
@@ -189,9 +190,18 @@ button {
 
 /* ---------- Device stage ---------- */
 
+.stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 1rem 0;
+}
+
 .device-stage {
-  width: min(520px, 90vw);
-  aspect-ratio: 520 / 420;
+  width: min(520px, 80vw);
+  height: 420px;
   position: relative;
   /* The contact shadow lives entirely here, in CSS, not as a 3D-rendered
      plane behind the device. A pure CSS radial gradient is guaranteed to
@@ -621,9 +631,36 @@ input[type='range']::-moz-range-thumb {
     min-height: 300px;
   }
 
+  .device-stage {
+    width: min(520px, 85vw);
+    height: auto;
+    aspect-ratio: 520 / 420;
+    max-height: 60vh;
+  }
+
   .mode-card {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.8rem;
+    margin: 0.5rem auto 0;
+    width: fit-content;
+  }
+
+  .mode-label {
     display: none;
   }
+
+  .mode-toggles {
+    flex-direction: row;
+    gap: 0.4rem;
+  }
+
+  .mode-btn {
+    padding: 0.4rem 0.7rem;
+  }
+
   .player-bar-wrap {
     margin-bottom: 2rem;
     padding: 0 0.5rem;
@@ -651,15 +688,17 @@ input[type='range']::-moz-range-thumb {
     margin-left: auto;
   }
 
-  .pb-time,
-  .pb-volume-icon,
-  .pb-volume {
+  .pb-time {
     display: none;
   }
 
   .pb-seek {
     flex: 1 0 100%;
     min-width: 0;
+  }
+
+  .pb-volume {
+    width: 60px;
   }
 
   .library {
@@ -672,9 +711,5 @@ input[type='range']::-moz-range-thumb {
 
   .track-row-wrap {
     gap: 0.5rem;
-  }
-
-  .device-stage {
-    max-height: 55vh;
   }
 }
