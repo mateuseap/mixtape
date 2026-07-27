@@ -111,6 +111,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
   let pointerDownX = 0;
   let pointerDownY = 0;
   let clickMoveThreshold = CLICK_MOVE_THRESHOLD;
+  let processedPointerUp = false;
 
   const raycaster = new THREE.Raycaster();
   const pointerNDC = new THREE.Vector2();
@@ -129,6 +130,7 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
   }
 
   function onPointerDown(event) {
+    processedPointerUp = false;
     isDragging = true;
     lastPointerX = event.clientX;
     pointerDownX = event.clientX;
@@ -154,6 +156,12 @@ export function createDragRotateController({ canvas, camera, deviceGroup, intera
 
   function onPointerUp(event) {
     isDragging = false;
+    // Guard against double-fire: some mobile browsers emit both pointerup and
+    // pointercancel (or pointerleave then pointerup) for a single tap. Without
+    // this guard the second call would re-toggle play/pause — making the tap
+    // appear to do nothing.
+    if (processedPointerUp) return;
+    processedPointerUp = true;
     try {
       canvas.releasePointerCapture(event.pointerId);
     } catch {
