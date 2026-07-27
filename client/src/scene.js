@@ -239,7 +239,7 @@ function buildDevice(screenTexture) {
   wheelGroup.add(center);
 
   const centerHitArea = new THREE.Mesh(
-    new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS + 0.18, CENTER_BUTTON_RADIUS + 0.18, 0.05, 40),
+    new THREE.CylinderGeometry(CENTER_BUTTON_RADIUS + 0.08, CENTER_BUTTON_RADIUS + 0.08, 0.05, 40),
     new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
   );
   centerHitArea.rotation.x = Math.PI / 2;
