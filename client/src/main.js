@@ -28,6 +28,7 @@ const deviceMp3Tab = document.getElementById('device-mp3');
 const deviceCdTab = document.getElementById('device-cd');
 
 const VOLUME_STEP = 0.1;
+let currentVolume = 1;
 
 const DRAG_HINTS = {
   mp3: '<span aria-hidden="true">&larr;</span> &#x1f91a; DRAG TO ROTATE &middot; CLICK CENTER TO PLAY <span aria-hidden="true">&rarr;</span>',
@@ -35,10 +36,12 @@ const DRAG_HINTS = {
 };
 
 function setVolume(value) {
-  audio.volume = Math.min(1, Math.max(0, value));
+  currentVolume = Math.min(1, Math.max(0, value));
+  audio.volume = currentVolume;
+  audioAnalyser.setVolume(currentVolume);
   const slider = document.getElementById('pb-volume');
-  if (slider) slider.value = audio.volume;
-  if (activeDevice === 'mp3') scene.setVolume(audio.volume);
+  if (slider) slider.value = currentVolume;
+  if (activeDevice === 'mp3') scene.setVolume(currentVolume);
 }
 
 function stopPlayback() {
@@ -56,8 +59,8 @@ function mountMp3Scene() {
       onPlayPause: () => setState(state.isPlaying ? pause(state) : play(state)),
       onPrev: () => setState(prev(state)),
       onNext: () => setState(next(state)),
-      onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
-      onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
+      onVolumeUp: () => setVolume(currentVolume + VOLUME_STEP),
+      onVolumeDown: () => setVolume(currentVolume - VOLUME_STEP),
     },
     audioAnalyser,
   );
@@ -69,8 +72,8 @@ function mountCdScene() {
     onStop: () => stopPlayback(),
     onPrev: () => setState(prev(state)),
     onNext: () => setState(next(state)),
-    onVolumeUp: () => setVolume(audio.volume + VOLUME_STEP),
-    onVolumeDown: () => setVolume(audio.volume - VOLUME_STEP),
+      onVolumeUp: () => setVolume(currentVolume + VOLUME_STEP),
+      onVolumeDown: () => setVolume(currentVolume - VOLUME_STEP),
   });
 }
 
@@ -91,7 +94,7 @@ function syncDeviceDisplay() {
   const track = currentTrack(state);
   if (activeDevice === 'mp3') {
     scene.updateScreen(track ? track.title : '', track ? track.artist ?? '' : '');
-    scene.setVolume(audio.volume);
+    scene.setVolume(currentVolume);
   } else {
     scene.setTrackInfo(track ? track.title : '', state.position >= 0 ? state.position + 1 : 1, track ? track.id : null);
     scene.setDiscLoaded(!!track);
@@ -139,7 +142,7 @@ function renderPlayerBar() {
     <input id="pb-seek" class="pb-seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek" />
     <span class="pb-time" id="pb-total">0:00</span>
     <span class="pb-volume-icon">${iconVolume()}</span>
-    <input id="pb-volume" class="pb-volume" type="range" min="0" max="1" step="0.01" value="${audio.volume}" aria-label="Volume" />
+    <input id="pb-volume" class="pb-volume" type="range" min="0" max="1" step="0.01" value="${currentVolume}" aria-label="Volume" />
   `;
   wirePlayerBar();
   // The seek/time elements above are recreated with default zero values on
@@ -175,6 +178,9 @@ function wirePlayerBar() {
     if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration;
   });
   document.getElementById('pb-volume').addEventListener('input', (e) => {
+    setVolume(Number(e.target.value));
+  });
+  document.getElementById('pb-volume').addEventListener('change', (e) => {
     setVolume(Number(e.target.value));
   });
 }

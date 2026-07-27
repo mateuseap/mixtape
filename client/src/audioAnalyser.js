@@ -11,7 +11,9 @@
 export function createAudioAnalyser(audioElement) {
   let audioContext = null;
   let analyser = null;
+  let gainNode = null;
   let buffer = null;
+  let currentVolume = 1;
 
   function ensure() {
     if (!audioElement) return;
@@ -23,8 +25,11 @@ export function createAudioAnalyser(audioElement) {
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 256;
         buffer = new Uint8Array(analyser.frequencyBinCount);
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = currentVolume;
         source.connect(analyser);
-        analyser.connect(audioContext.destination);
+        analyser.connect(gainNode);
+        gainNode.connect(audioContext.destination);
       } catch {
         // Web Audio unavailable; the screen just shows a flat line, which is
         // a harmless visual degradation.
@@ -41,11 +46,18 @@ export function createAudioAnalyser(audioElement) {
     }
   }
 
+  function setVolume(value) {
+    currentVolume = Math.min(1, Math.max(0, value));
+    if (gainNode) {
+      gainNode.gain.value = currentVolume;
+    }
+  }
+
   function read() {
     if (!analyser || !buffer) return null;
     analyser.getByteTimeDomainData(buffer);
     return buffer;
   }
 
-  return { ensure, read };
+  return { ensure, setVolume, read };
 }
